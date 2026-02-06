@@ -260,6 +260,7 @@ textarea { resize:vertical; min-height:80px; }
       <div class="header-actions">
         <span id="userGreeting" style="font-size:13px;color:var(--text2)"></span>
         <button class="btn btn-sm" id="adminBtn" style="background:var(--red);color:#fff;display:none" onclick="showAdminPanel()">Admin</button>
+        <button class="btn btn-outline btn-sm" onclick="showHelp()">Help</button>
         <button class="btn btn-outline btn-sm" onclick="showProfile()">Profile</button>
         <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
       </div>
@@ -1047,6 +1048,92 @@ async function importAllReceiptItems() {
   closeModal();
   await loadStrains();
   toast(`Added ${added} strain(s)`);
+}
+
+// ============ HELP ============
+function showHelp() {
+  showModal('How to Use Strain Tracker', `
+    <div style="max-width:700px">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
+        <h3 style="font-size:15px;color:var(--green);margin-bottom:12px">📖 Welcome to Strain Tracker!</h3>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:0">
+          Track your cannabis purchases and strains with AI-powered automation. Choose the method that works best for you!
+        </p>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <h4 style="font-size:14px;margin-bottom:10px">🧾 Method 1: Import Receipt (Track Purchases)</h4>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+          Perfect for tracking your purchase history and spending.
+        </p>
+        <ol style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Copy Receipt Text:</strong> Go to your dispensary's order page and copy the receipt text</li>
+          <li><strong>Or Take a Photo:</strong> Photograph your paper receipt</li>
+          <li><strong>Import:</strong> Click "Import Receipt" button on the main page</li>
+          <li><strong>Choose Method:</strong> Select "Paste Text" or "Photo" tab</li>
+          <li><strong>Parse:</strong> Our AI will extract all items, prices, and dispensary info</li>
+          <li><strong>Add Items:</strong> Review and add individual items or click "Add All"</li>
+        </ol>
+        <p style="font-size:12px;color:var(--orange);margin-top:10px;margin-bottom:0">
+          ✨ This method automatically captures prices, dates, and store information!
+        </p>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <h4 style="font-size:14px;margin-bottom:10px">🏷️ Method 2: Scan Label (Track Strains Only)</h4>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+          Perfect for tracking strains without purchase history.
+        </p>
+        <ol style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Click "+ Add Strain"</strong> on the main page</li>
+          <li><strong>Upload Label Photo:</strong> Click "Upload Label Photo" section</li>
+          <li><strong>Choose Image:</strong> Take or select a photo of the product label</li>
+          <li><strong>AI Extraction:</strong> Our AI reads THC%, CBD%, terpenes, batch info, and strain name</li>
+          <li><strong>Auto-Fill:</strong> Form fields are automatically filled with extracted data</li>
+          <li><strong>Review & Add:</strong> Check the info, add ratings/notes, and save</li>
+        </ol>
+        <p style="font-size:12px;color:var(--orange);margin-top:10px;margin-bottom:0">
+          ✨ No purchase details captured - just strain information!
+        </p>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <h4 style="font-size:14px;margin-bottom:10px">✏️ Method 3: Manual Entry</h4>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+          Full control over all details.
+        </p>
+        <ol style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Click "+ Add Strain"</strong> on the main page</li>
+          <li><strong>Fill in Details:</strong> Enter strain name, type, THC/CBD, etc.</li>
+          <li><strong>Optional Purchase Info:</strong> Add date, store, price if you want</li>
+          <li><strong>Add Photos:</strong> Upload bud or label photos after saving</li>
+          <li><strong>Save:</strong> Your strain is added to your collection!</li>
+        </ol>
+      </div>
+
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <h4 style="font-size:14px;margin-bottom:10px">📸 Adding Photos to Existing Strains</h4>
+        <ul style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Click any strain card</strong> to open strain details</li>
+          <li>Use <strong>"Bud Photo"</strong> button to add product photos</li>
+          <li>Use <strong>"Label Photo"</strong> button to add label images</li>
+          <li>Photos are organized in a gallery for each strain</li>
+        </ul>
+      </div>
+
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
+        <h4 style="font-size:14px;margin-bottom:10px">💡 Tips</h4>
+        <ul style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Mix Methods:</strong> Use receipts for purchases and label scans for gifts/samples</li>
+          <li><strong>AI Models:</strong> Choose your preferred AI model in Profile > Settings</li>
+          <li><strong>Search & Filter:</strong> Use the search bar and type filters to find strains quickly</li>
+          <li><strong>Stats Dashboard:</strong> Track your spending, ratings, and favorite dispensaries</li>
+          <li><strong>Export Data:</strong> Download your entire collection as JSON anytime</li>
+          <li><strong>Cloud Backups:</strong> Automatic backups with restore in Profile > Backups</li>
+        </ul>
+      </div>
+    </div>
+  `);
 }
 
 // ============ PROFILE ============
