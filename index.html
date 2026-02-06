@@ -325,6 +325,7 @@ textarea { resize:vertical; min-height:80px; }
     <div class="admin-tabs">
       <button class="admin-tab active" onclick="switchAdminTab('overview',this)">Overview</button>
       <button class="admin-tab" onclick="switchAdminTab('users',this)">Users</button>
+      <button class="admin-tab" onclick="switchAdminTab('settings',this)">Settings</button>
       <button class="admin-tab" onclick="switchAdminTab('userDetail',this)" id="userDetailTab" style="display:none">User Detail</button>
     </div>
 
@@ -355,6 +356,19 @@ textarea { resize:vertical; min-height:80px; }
           </thead>
           <tbody id="adminUserList"></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="adminSettingsTab" class="hidden">
+      <h3 style="margin-bottom:16px">Admin Settings</h3>
+      <div style="max-width:600px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px">
+        <div class="form-group">
+          <label>OpenRouter API Key</label>
+          <input type="password" id="adminApiKey" placeholder="sk-or-v1-...">
+          <p style="font-size:12px;color:var(--text2);margin-top:6px">Get your key at <a href="https://openrouter.ai" target="_blank" style="color:var(--green)">openrouter.ai</a></p>
+        </div>
+        <button class="btn btn-green" onclick="saveAdminSettings()">Save Settings</button>
       </div>
     </div>
 
@@ -1371,8 +1385,10 @@ function switchAdminTab(tab, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('adminOverviewTab').classList.toggle('hidden', tab !== 'overview');
   document.getElementById('adminUsersTab').classList.toggle('hidden', tab !== 'users');
+  document.getElementById('adminSettingsTab').classList.toggle('hidden', tab !== 'settings');
   document.getElementById('adminUserDetailTab').classList.toggle('hidden', tab !== 'userDetail');
   if (tab === 'userDetail') document.getElementById('userDetailTab').style.display = '';
+  if (tab === 'settings') loadAdminSettings();
 }
 
 function destroyAdminCharts() {
@@ -1535,6 +1551,21 @@ async function doDeleteUser(userId) {
     closeModal();
     await loadAdminUsers();
     toast('User deleted');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadAdminSettings() {
+  try {
+    const settings = await api('admin-get-settings');
+    document.getElementById('adminApiKey').value = settings.apiKey || '';
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function saveAdminSettings() {
+  try {
+    const apiKey = document.getElementById('adminApiKey').value.trim();
+    await api('admin-save-settings', { method: 'POST', body: { apiKey } });
+    toast('Settings saved');
   } catch (e) { toast(e.message, 'error'); }
 }
 

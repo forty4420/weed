@@ -8,7 +8,6 @@
 // ============ CONFIGURATION ============
 define('ADMIN_PASSWORD', 'Fuctit4420!');       // Admin password
 define('ADMIN_USERS', ['forty4420']);           // Usernames with admin access
-define('OPENROUTER_API_KEY', '');              // Your OpenRouter API key
 define('DATA_DIR', __DIR__ . '/data');
 define('UPLOAD_DIR', __DIR__ . '/uploads');
 define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024);  // 10MB
@@ -170,6 +169,26 @@ function saveStrainCache($strainName, $parsed, $raw) {
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
 }
 
+function getSettingsFile() {
+    return DATA_DIR . '/settings.json';
+}
+
+function loadSettings() {
+    $file = getSettingsFile();
+    if (!file_exists($file)) return ['apiKey' => ''];
+    $data = json_decode(file_get_contents($file), true);
+    return is_array($data) ? $data : ['apiKey' => ''];
+}
+
+function saveSettings($settings) {
+    file_put_contents(getSettingsFile(), json_encode($settings, JSON_PRETTY_PRINT));
+}
+
+function getOpenRouterKey() {
+    $settings = loadSettings();
+    return $settings['apiKey'] ?? '';
+}
+
 function createBackup($userId) {
     $file = getUserFile($userId);
     if (!file_exists($file)) return;
@@ -192,7 +211,8 @@ function sanitizeFilename($name) {
 }
 
 function callOpenRouter($messages, $model = 'google/gemini-2.0-flash-001', $maxTokens = 2000) {
-    if (empty(OPENROUTER_API_KEY)) {
+    $apiKey = getOpenRouterKey();
+    if (empty($apiKey)) {
         return ['error' => 'OpenRouter API key not configured'];
     }
 
@@ -209,7 +229,7 @@ function callOpenRouter($messages, $model = 'google/gemini-2.0-flash-001', $maxT
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . OPENROUTER_API_KEY,
+            'Authorization: Bearer ' . $apiKey,
             'HTTP-Referer: https://strain-tracker.app',
         ],
         CURLOPT_POSTFIELDS => json_encode($payload),
@@ -229,7 +249,8 @@ function callOpenRouter($messages, $model = 'google/gemini-2.0-flash-001', $maxT
 }
 
 function callOpenRouterVision($imageBase64, $mimeType, $prompt, $model = 'google/gemini-2.0-flash-001') {
-    if (empty(OPENROUTER_API_KEY)) {
+    $apiKey = getOpenRouterKey();
+    if (empty($apiKey)) {
         return ['error' => 'OpenRouter API key not configured'];
     }
 
@@ -264,7 +285,7 @@ function callOpenRouterVision($imageBase64, $mimeType, $prompt, $model = 'google
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . OPENROUTER_API_KEY,
+            'Authorization: Bearer ' . $apiKey,
             'HTTP-Referer: https://strain-tracker.app',
         ],
         CURLOPT_POSTFIELDS => json_encode($payload),
@@ -1215,6 +1236,24 @@ Return ONLY valid JSON.";
 
         fclose($out);
         exit;
+
+    case 'admin-get-settings':
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $settings = loadSettings();
+        jsonResponse(['apiKey' => $settings['apiKey'] ?? '']);
+        break;
+
+    case 'admin-save-settings':
+        if ($method !== 'POST') errorResponse('POST required', 405);
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $input = getInput();
+        $settings = loadSettings();
+        $settings['apiKey'] = $input['apiKey'] ?? '';
+        saveSettings($settings);
+        jsonResponse(['success' => true]);
+        break;
 
     default:
         jsonResponse([
