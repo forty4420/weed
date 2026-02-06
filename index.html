@@ -466,7 +466,23 @@ async function showApp() {
   document.getElementById('adminView').classList.add('hidden');
   document.getElementById('appView').classList.remove('hidden');
   document.getElementById('userGreeting').textContent = 'Hi, ' + (state.user?.displayName || state.user?.username || '');
+  // Refresh admin status from server (handles pre-existing sessions)
+  try {
+    const profile = await api('profile');
+    if (profile.isAdmin !== undefined) {
+      state.user.isAdmin = profile.isAdmin;
+      state.user.displayName = profile.displayName;
+      localStorage.setItem('st_user', JSON.stringify(state.user));
+    }
+  } catch (e) {
+    // Token may be expired - force re-login
+    if (e.message.includes('expired') || e.message.includes('Invalid token') || e.message.includes('Authentication')) {
+      doLogout();
+      return;
+    }
+  }
   document.getElementById('adminBtn').style.display = state.user?.isAdmin ? '' : 'none';
+  document.getElementById('userGreeting').textContent = 'Hi, ' + (state.user?.displayName || state.user?.username || '');
   await loadStrains();
 }
 

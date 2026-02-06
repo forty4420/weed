@@ -327,7 +327,7 @@ switch ($action) {
                 'id' => $userId,
                 'username' => $username,
                 'displayName' => $displayName,
-                'isAdmin' => false,
+                'isAdmin' => isAdmin($userId),
             ]
         ]);
         break;
@@ -381,6 +381,7 @@ switch ($action) {
                 'createdAt' => $user['createdAt'],
                 'strainCount' => count($user['strains'] ?? []),
                 'settings' => $user['settings'] ?? [],
+                'isAdmin' => isAdmin($userId),
             ]);
         } elseif ($method === 'POST') {
             $input = getInput();
@@ -819,7 +820,7 @@ Return ONLY valid JSON.";
                 'id' => $u['id'],
                 'username' => $u['username'],
                 'displayName' => $u['displayName'] ?? $u['username'],
-                'isAdmin' => !empty($u['isAdmin']),
+                'isAdmin' => isAdmin($u['id']),
                 'createdAt' => $u['createdAt'] ?? '',
                 'strainCount' => count($strains),
                 'totalSpent' => round($totalSpent, 2),
@@ -896,7 +897,7 @@ Return ONLY valid JSON.";
             'id' => $targetUser['id'],
             'username' => $targetUser['username'],
             'displayName' => $targetUser['displayName'] ?? $targetUser['username'],
-            'isAdmin' => !empty($targetUser['isAdmin']),
+            'isAdmin' => isAdmin($targetUser['id']),
             'createdAt' => $targetUser['createdAt'] ?? '',
             'settings' => $targetUser['settings'] ?? [],
             'strains' => $strains,
