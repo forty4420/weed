@@ -15,6 +15,116 @@ A multi-user cannabis strain tracking web application with AI-powered label read
 - **Data export** - Download your collection as JSON
 - **Dark theme** - Green accent, mobile responsive, card-based UI
 
+## How to Use
+
+After registering and logging in, you have **three ways** to track your cannabis strains:
+
+### Method 1: Import Receipt (Track Purchases) 🧾
+
+**Best for:** Tracking purchase history, spending, and maintaining complete records.
+
+1. **Get Your Receipt:**
+   - **Option A:** Go to your dispensary's website order page and copy the receipt text
+   - **Option B:** Take a photo of your paper receipt with your phone
+
+2. **Import the Receipt:**
+   - Click the **"Import Receipt"** button on the main dashboard
+   - Choose your method:
+     - **"Paste Text" tab**: Paste your copied receipt text
+     - **"Photo" tab**: Upload your receipt photo
+   - Click **"Parse Receipt"**
+
+3. **Review & Add:**
+   - AI will extract all items, prices, strain names, and dispensary information
+   - Review the extracted items
+   - Click **"Add"** on individual items or **"Add All"** to import everything at once
+
+**What gets captured:** Strain names, prices, purchase date, dispensary/store name, and all product details found in the receipt.
+
+---
+
+### Method 2: Scan Product Label (Track Strains Only) 🏷️
+
+**Best for:** Tracking strains without purchase information (gifts, samples, or when you just want strain data).
+
+1. **Start Adding:**
+   - Click **"+ Add Strain"** on the main dashboard
+
+2. **Upload Label Photo:**
+   - Scroll to the **"Upload Label Photo (AI reads it)"** section
+   - Click to upload or take a photo of the product label
+   - Make sure the label is clear and readable
+
+3. **AI Extraction:**
+   - AI automatically reads and extracts:
+     - Strain name
+     - THC percentage
+     - CBD percentage
+     - Terpene profiles
+     - Batch/lot information
+   - Form fields are automatically filled with this data
+
+4. **Complete & Save:**
+   - Review the auto-filled information
+   - Add your own rating and review
+   - Optionally add purchase details (date, store, price) if you want
+   - Click **"Add Strain"**
+
+**What gets captured:** Strain information only (THC, CBD, terpenes, batch info). No purchase history unless you manually add it.
+
+---
+
+### Method 3: Manual Entry ✏️
+
+**Best for:** Full control when you want to enter everything yourself.
+
+1. Click **"+ Add Strain"**
+2. Fill in all the details manually:
+   - Strain name (required)
+   - Type (Indica, Sativa, Hybrid)
+   - THC/CBD percentages
+   - Terpenes
+   - Purchase information (optional): date, store, price
+   - Rating and review
+3. Click **"Add Strain"**
+
+---
+
+### Adding Photos to Existing Strains 📸
+
+After adding a strain (by any method), you can add photos:
+
+1. **Click on any strain card** to open the details view
+2. Look for the **"Upload Photos"** section
+3. Choose photo type:
+   - **"Bud Photo"**: Pictures of the actual cannabis flower
+   - **"Label Photo"**: Pictures of product labels/packaging
+4. Photos appear in a gallery within each strain's details
+
+**Note:** If you add a label photo to an existing strain, the AI can read it and update the strain information.
+
+---
+
+### Understanding Your Dashboard 📊
+
+- **Stats Cards**: View total strains, money spent, average rating, and number of dispensaries
+- **Search Bar**: Find strains by name instantly
+- **Filter Chips**: Filter by type (All, Indica, Sativa, Hybrid)
+- **Sort Options**: Sort by newest, oldest, name, rating, or price
+- **Export**: Download your entire collection as JSON backup
+- **Profile**: Update your info, change AI model preference, manage backups
+
+---
+
+### Pro Tips 💡
+
+- **Mix and Match**: Use receipt imports for purchases and label scans for gifts or samples
+- **Choose Your AI**: Go to Profile > Settings to select your preferred AI model (Google Gemini, DeepSeek, Llama, or Qwen)
+- **Bulk Import**: Save time by photographing receipts instead of manually entering each strain
+- **Label Quality**: For best AI reading results, ensure label photos are well-lit and in focus
+- **Automatic Backups**: Your data is automatically backed up. Restore anytime from Profile > Backups
+- **Track Spending**: Use the receipt import method to automatically track how much you spend at each dispensary
+
 ## Setup (Hostinger / Shared Hosting)
 
 ### 1. Upload Files

@@ -230,6 +230,10 @@ textarea { resize:vertical; min-height:80px; }
           <input type="text" id="regUser" autocomplete="username" placeholder="Choose a username">
         </div>
         <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="regEmail" autocomplete="email" placeholder="Your email address">
+        </div>
+        <div class="form-group">
           <label>Display Name</label>
           <input type="text" id="regName" placeholder="Your display name">
         </div>
@@ -260,6 +264,7 @@ textarea { resize:vertical; min-height:80px; }
       <div class="header-actions">
         <span id="userGreeting" style="font-size:13px;color:var(--text2)"></span>
         <button class="btn btn-sm" id="adminBtn" style="background:var(--red);color:#fff;display:none" onclick="showAdminPanel()">Admin</button>
+        <button class="btn btn-outline btn-sm" onclick="showHelp()">Help</button>
         <button class="btn btn-outline btn-sm" onclick="showProfile()">Profile</button>
         <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
       </div>
@@ -320,6 +325,7 @@ textarea { resize:vertical; min-height:80px; }
     <div class="admin-tabs">
       <button class="admin-tab active" onclick="switchAdminTab('overview',this)">Overview</button>
       <button class="admin-tab" onclick="switchAdminTab('users',this)">Users</button>
+      <button class="admin-tab" onclick="switchAdminTab('settings',this)">Settings</button>
       <button class="admin-tab" onclick="switchAdminTab('userDetail',this)" id="userDetailTab" style="display:none">User Detail</button>
     </div>
 
@@ -350,6 +356,19 @@ textarea { resize:vertical; min-height:80px; }
           </thead>
           <tbody id="adminUserList"></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="adminSettingsTab" class="hidden">
+      <h3 style="margin-bottom:16px">Admin Settings</h3>
+      <div style="max-width:600px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px">
+        <div class="form-group">
+          <label>OpenRouter API Key</label>
+          <input type="password" id="adminApiKey" placeholder="sk-or-v1-...">
+          <p style="font-size:12px;color:var(--text2);margin-top:6px">Get your key at <a href="https://openrouter.ai" target="_blank" style="color:var(--green)">openrouter.ai</a></p>
+        </div>
+        <button class="btn btn-green" onclick="saveAdminSettings()">Save Settings</button>
       </div>
     </div>
 
@@ -422,14 +441,15 @@ async function doLogin() {
 
 async function doRegister() {
   const username = document.getElementById('regUser').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
   const displayName = document.getElementById('regName').value.trim();
   const password = document.getElementById('regPass').value;
   const password2 = document.getElementById('regPass2').value;
-  if (!username || !password) return toast('Fill in all fields', 'error');
+  if (!username || !email || !password) return toast('Fill in all fields', 'error');
   if (password !== password2) return toast('Passwords do not match', 'error');
   if (password.length < 6) return toast('Password must be 6+ characters', 'error');
   try {
-    const data = await api('register', { method: 'POST', body: { username, password, displayName } });
+    const data = await api('register', { method: 'POST', body: { username, email, password, displayName } });
     setAuth(data.token, data.user);
     toast('Account created');
   } catch (e) { toast(e.message, 'error'); }
@@ -472,6 +492,7 @@ async function showApp() {
     console.log('[StrainTracker] Profile refresh:', { id: profile.id, isAdmin: profile.isAdmin, displayName: profile.displayName });
     state.user.isAdmin = !!profile.isAdmin;
     state.user.displayName = profile.displayName || state.user.displayName;
+    state.user.email = profile.email || state.user.email || '';
     state.user.id = profile.id || state.user.id;
     localStorage.setItem('st_user', JSON.stringify(state.user));
   } catch (e) {
@@ -1049,6 +1070,92 @@ async function importAllReceiptItems() {
   toast(`Added ${added} strain(s)`);
 }
 
+// ============ HELP ============
+function showHelp() {
+  showModal('How to Use Strain Tracker', `
+    <div style="max-width:700px">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
+        <h3 style="font-size:15px;color:var(--green);margin-bottom:12px">📖 Welcome to Strain Tracker!</h3>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:0">
+          Track your cannabis purchases and strains with AI-powered automation. Choose the method that works best for you!
+        </p>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <h4 style="font-size:14px;margin-bottom:10px">🧾 Method 1: Import Receipt (Track Purchases)</h4>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+          Perfect for tracking your purchase history and spending.
+        </p>
+        <ol style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Copy Receipt Text:</strong> Go to your dispensary's order page and copy the receipt text</li>
+          <li><strong>Or Take a Photo:</strong> Photograph your paper receipt</li>
+          <li><strong>Import:</strong> Click "Import Receipt" button on the main page</li>
+          <li><strong>Choose Method:</strong> Select "Paste Text" or "Photo" tab</li>
+          <li><strong>Parse:</strong> Our AI will extract all items, prices, and dispensary info</li>
+          <li><strong>Add Items:</strong> Review and add individual items or click "Add All"</li>
+        </ol>
+        <p style="font-size:12px;color:var(--orange);margin-top:10px;margin-bottom:0">
+          ✨ This method automatically captures prices, dates, and store information!
+        </p>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <h4 style="font-size:14px;margin-bottom:10px">🏷️ Method 2: Scan Label (Track Strains Only)</h4>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+          Perfect for tracking strains without purchase history.
+        </p>
+        <ol style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Click "+ Add Strain"</strong> on the main page</li>
+          <li><strong>Upload Label Photo:</strong> Click "Upload Label Photo" section</li>
+          <li><strong>Choose Image:</strong> Take or select a photo of the product label</li>
+          <li><strong>AI Extraction:</strong> Our AI reads THC%, CBD%, terpenes, batch info, and strain name</li>
+          <li><strong>Auto-Fill:</strong> Form fields are automatically filled with extracted data</li>
+          <li><strong>Review & Add:</strong> Check the info, add ratings/notes, and save</li>
+        </ol>
+        <p style="font-size:12px;color:var(--orange);margin-top:10px;margin-bottom:0">
+          ✨ No purchase details captured - just strain information!
+        </p>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <h4 style="font-size:14px;margin-bottom:10px">✏️ Method 3: Manual Entry</h4>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+          Full control over all details.
+        </p>
+        <ol style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Click "+ Add Strain"</strong> on the main page</li>
+          <li><strong>Fill in Details:</strong> Enter strain name, type, THC/CBD, etc.</li>
+          <li><strong>Optional Purchase Info:</strong> Add date, store, price if you want</li>
+          <li><strong>Add Photos:</strong> Upload bud or label photos after saving</li>
+          <li><strong>Save:</strong> Your strain is added to your collection!</li>
+        </ol>
+      </div>
+
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px">
+        <h4 style="font-size:14px;margin-bottom:10px">📸 Adding Photos to Existing Strains</h4>
+        <ul style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Click any strain card</strong> to open strain details</li>
+          <li>Use <strong>"Bud Photo"</strong> button to add product photos</li>
+          <li>Use <strong>"Label Photo"</strong> button to add label images</li>
+          <li>Photos are organized in a gallery for each strain</li>
+        </ul>
+      </div>
+
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
+        <h4 style="font-size:14px;margin-bottom:10px">💡 Tips</h4>
+        <ul style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
+          <li><strong>Mix Methods:</strong> Use receipts for purchases and label scans for gifts/samples</li>
+          <li><strong>AI Models:</strong> Choose your preferred AI model in Profile > Settings</li>
+          <li><strong>Search & Filter:</strong> Use the search bar and type filters to find strains quickly</li>
+          <li><strong>Stats Dashboard:</strong> Track your spending, ratings, and favorite dispensaries</li>
+          <li><strong>Export Data:</strong> Download your entire collection as JSON anytime</li>
+          <li><strong>Cloud Backups:</strong> Automatic backups with restore in Profile > Backups</li>
+        </ul>
+      </div>
+    </div>
+  `);
+}
+
 // ============ PROFILE ============
 function showProfile() {
   const isAdm = state.user?.isAdmin;
@@ -1063,9 +1170,11 @@ function showProfile() {
         <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">User ID</span><span style="font-size:13px;font-weight:500">${esc(state.user?.id || '')}</span></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">Username</span><span style="font-size:13px;font-weight:500">${esc(state.user?.username || '')}</span></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">Display Name</span><span style="font-size:13px;font-weight:500">${esc(state.user?.displayName || '')}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">Email</span><span style="font-size:13px;font-weight:500">${esc(state.user?.email || '-')}</span></div>
         <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--text2)">Role</span><span style="font-size:13px;font-weight:500;color:${isAdm ? 'var(--red)' : 'var(--text2)'}">${isAdm ? 'Admin' : 'User'}</span></div>
       </div>
       <div class="form-group"><label>Display Name</label><input id="p_name" value="${esc(state.user?.displayName || '')}"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="p_email" value="${esc(state.user?.email || '')}"></div>
       <button class="btn btn-green" onclick="saveProfile()">Save</button>
       <hr style="border-color:var(--border);margin:16px 0">
       <h3 style="font-size:14px;margin-bottom:10px">Change Password</h3>
@@ -1109,7 +1218,7 @@ function switchProfileTab(tab, btn) {
 
 async function saveProfile() {
   try {
-    await api('profile', { method: 'POST', body: { displayName: document.getElementById('p_name').value.trim() } });
+    await api('profile', { method: 'POST', body: { displayName: document.getElementById('p_name').value.trim(), email: document.getElementById('p_email').value.trim() } });
     state.user.displayName = document.getElementById('p_name').value.trim();
     localStorage.setItem('st_user', JSON.stringify(state.user));
     document.getElementById('userGreeting').textContent = 'Hi, ' + state.user.displayName;
@@ -1276,8 +1385,10 @@ function switchAdminTab(tab, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('adminOverviewTab').classList.toggle('hidden', tab !== 'overview');
   document.getElementById('adminUsersTab').classList.toggle('hidden', tab !== 'users');
+  document.getElementById('adminSettingsTab').classList.toggle('hidden', tab !== 'settings');
   document.getElementById('adminUserDetailTab').classList.toggle('hidden', tab !== 'userDetail');
   if (tab === 'userDetail') document.getElementById('userDetailTab').style.display = '';
+  if (tab === 'settings') loadAdminSettings();
 }
 
 function destroyAdminCharts() {
@@ -1406,8 +1517,8 @@ function renderAdminUsers() {
   document.getElementById('adminUserList').innerHTML = filtered.map(u => `
     <tr>
       <td>
-        <div style="font-weight:500">${esc(u.displayName || u.username)}${u.isAdmin ? ' <span style="color:var(--red);font-size:11px">[ADMIN]</span>' : ''}</div>
-        <div style="font-size:11px;color:var(--text2)">@${esc(u.username)}</div>
+        <div style="font-weight:500">${esc(u.displayName || u.username)}${u.isAdmin ? ' <span style="color:var(--red);font-size:11px">[ADMIN]</span>' : ''}${u.blocked ? ' <span style="color:var(--orange);font-size:11px">[BLOCKED]</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--text2)">@${esc(u.username)}${u.email ? ' &middot; ' + esc(u.email) : ''}</div>
       </td>
       <td>${u.strainCount}</td>
       <td>$${u.totalSpent.toFixed(2)}</td>
@@ -1440,6 +1551,21 @@ async function doDeleteUser(userId) {
     closeModal();
     await loadAdminUsers();
     toast('User deleted');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadAdminSettings() {
+  try {
+    const settings = await api('admin-get-settings');
+    document.getElementById('adminApiKey').value = settings.apiKey || '';
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function saveAdminSettings() {
+  try {
+    const apiKey = document.getElementById('adminApiKey').value.trim();
+    await api('admin-save-settings', { method: 'POST', body: { apiKey } });
+    toast('Settings saved');
   } catch (e) { toast(e.message, 'error'); }
 }
 

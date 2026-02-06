@@ -8,7 +8,6 @@
 // ============ CONFIGURATION ============
 define('ADMIN_PASSWORD', 'Fuctit4420!');       // Admin password
 define('ADMIN_USERS', ['forty4420']);           // Usernames with admin access
-define('OPENROUTER_API_KEY', '');              // Your OpenRouter API key
 define('DATA_DIR', __DIR__ . '/data');
 define('UPLOAD_DIR', __DIR__ . '/uploads');
 define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024);  // 10MB
@@ -108,6 +107,15 @@ function authenticateRequest() {
         saveTokens($tokens);
         errorResponse('Token expired', 401);
     }
+    // Check if user is blocked (skip for admin tokens)
+    if (empty($t['isAdminToken'])) {
+        $u = loadUser($t['userId']);
+        if ($u && !empty($u['blocked'])) {
+            unset($tokens[$token]);
+            saveTokens($tokens);
+            errorResponse('Account suspended', 403);
+        }
+    }
     return $t['userId'];
 }
 
@@ -161,6 +169,26 @@ function saveStrainCache($strainName, $parsed, $raw) {
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
 }
 
+function getSettingsFile() {
+    return DATA_DIR . '/settings.json';
+}
+
+function loadSettings() {
+    $file = getSettingsFile();
+    if (!file_exists($file)) return ['apiKey' => ''];
+    $data = json_decode(file_get_contents($file), true);
+    return is_array($data) ? $data : ['apiKey' => ''];
+}
+
+function saveSettings($settings) {
+    file_put_contents(getSettingsFile(), json_encode($settings, JSON_PRETTY_PRINT));
+}
+
+function getOpenRouterKey() {
+    $settings = loadSettings();
+    return $settings['apiKey'] ?? '';
+}
+
 function createBackup($userId) {
     $file = getUserFile($userId);
     if (!file_exists($file)) return;
@@ -183,7 +211,8 @@ function sanitizeFilename($name) {
 }
 
 function callOpenRouter($messages, $model = 'google/gemini-2.0-flash-001', $maxTokens = 2000) {
-    if (empty(OPENROUTER_API_KEY)) {
+    $apiKey = getOpenRouterKey();
+    if (empty($apiKey)) {
         return ['error' => 'OpenRouter API key not configured'];
     }
 
@@ -200,7 +229,7 @@ function callOpenRouter($messages, $model = 'google/gemini-2.0-flash-001', $maxT
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . OPENROUTER_API_KEY,
+            'Authorization: Bearer ' . $apiKey,
             'HTTP-Referer: https://strain-tracker.app',
         ],
         CURLOPT_POSTFIELDS => json_encode($payload),
@@ -220,7 +249,8 @@ function callOpenRouter($messages, $model = 'google/gemini-2.0-flash-001', $maxT
 }
 
 function callOpenRouterVision($imageBase64, $mimeType, $prompt, $model = 'google/gemini-2.0-flash-001') {
-    if (empty(OPENROUTER_API_KEY)) {
+    $apiKey = getOpenRouterKey();
+    if (empty($apiKey)) {
         return ['error' => 'OpenRouter API key not configured'];
     }
 
@@ -255,7 +285,7 @@ function callOpenRouterVision($imageBase64, $mimeType, $prompt, $model = 'google
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . OPENROUTER_API_KEY,
+            'Authorization: Bearer ' . $apiKey,
             'HTTP-Referer: https://strain-tracker.app',
         ],
         CURLOPT_POSTFIELDS => json_encode($payload),
@@ -286,6 +316,7 @@ switch ($action) {
         $input = getInput();
         $username = trim($input['username'] ?? '');
         $password = $input['password'] ?? '';
+        $email = trim($input['email'] ?? '');
         $displayName = trim($input['displayName'] ?? $username);
 
         if (strlen($username) < 3 || strlen($username) > 30) {
@@ -297,6 +328,9 @@ switch ($action) {
         if (strlen($password) < 6) {
             errorResponse('Password must be at least 6 characters');
         }
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            errorResponse('A valid email address is required');
+        }
 
         $userId = strtolower($username);
         if (loadUser($userId)) {
@@ -307,6 +341,7 @@ switch ($action) {
             'id' => $userId,
             'username' => $username,
             'displayName' => $displayName,
+            'email' => $email,
             'passwordHash' => hashPassword($password),
             'createdAt' => date('c'),
             'strains' => [],
@@ -343,6 +378,9 @@ switch ($action) {
         if (!$user || !verifyPassword($password, $user['passwordHash'])) {
             errorResponse('Invalid username or password', 401);
         }
+        if (!empty($user['blocked'])) {
+            errorResponse('Your account has been suspended. Contact the administrator.', 403);
+        }
 
         $token = generateToken();
         $tokens = loadTokens();
@@ -378,6 +416,7 @@ switch ($action) {
                 'id' => $user['id'],
                 'username' => $user['username'],
                 'displayName' => $user['displayName'],
+                'email' => $user['email'] ?? '',
                 'createdAt' => $user['createdAt'],
                 'strainCount' => count($user['strains'] ?? []),
                 'settings' => $user['settings'] ?? [],
@@ -387,6 +426,13 @@ switch ($action) {
             $input = getInput();
             if (isset($input['displayName'])) {
                 $user['displayName'] = trim($input['displayName']);
+            }
+            if (isset($input['email'])) {
+                $email = trim($input['email']);
+                if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    errorResponse('Invalid email address');
+                }
+                $user['email'] = $email;
             }
             if (isset($input['settings'])) {
                 $user['settings'] = array_merge($user['settings'] ?? [], $input['settings']);
@@ -799,6 +845,55 @@ Return ONLY valid JSON.";
         break;
 
     // ---- ADMIN ----
+    // ---- ADMIN PASSWORD-ONLY LOGIN ----
+    case 'admin-login':
+        if ($method !== 'POST') errorResponse('POST required', 405);
+        $input = getInput();
+        $password = $input['password'] ?? '';
+        if ($password !== ADMIN_PASSWORD) {
+            errorResponse('Invalid admin password', 401);
+        }
+        $token = generateToken();
+        $tokens = loadTokens();
+        // Store as admin token mapped to the first admin user
+        $adminUser = ADMIN_USERS[0] ?? 'admin';
+        $tokens[$token] = ['userId' => $adminUser, 'expires' => time() + TOKEN_EXPIRY, 'isAdminToken' => true];
+        saveTokens($tokens);
+        jsonResponse(['token' => $token, 'message' => 'Admin authenticated']);
+        break;
+
+    // ---- ADMIN BLOCK/UNBLOCK USER ----
+    case 'admin-block-user':
+        if ($method !== 'POST') errorResponse('POST required', 405);
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $input = getInput();
+        $targetId = $input['userId'] ?? '';
+        $block = $input['block'] ?? true;
+        if (empty($targetId)) errorResponse('User ID required');
+        if ($targetId === $userId) errorResponse('Cannot block yourself');
+
+        $targetUser = loadUser($targetId);
+        if (!$targetUser) errorResponse('User not found', 404);
+
+        $targetUser['blocked'] = (bool)$block;
+        $targetUser['blockedAt'] = $block ? date('c') : null;
+        saveUser($targetId, $targetUser);
+
+        // If blocking, also invalidate their tokens
+        if ($block) {
+            $tokens = loadTokens();
+            foreach ($tokens as $tk => $td) {
+                if ($td['userId'] === $targetId && empty($td['isAdminToken'])) {
+                    unset($tokens[$tk]);
+                }
+            }
+            saveTokens($tokens);
+        }
+
+        jsonResponse(['success' => true, 'blocked' => (bool)$block]);
+        break;
+
     case 'admin-users':
         $userId = authenticateRequest();
         requireAdmin($userId);
@@ -820,7 +915,10 @@ Return ONLY valid JSON.";
                 'id' => $u['id'],
                 'username' => $u['username'],
                 'displayName' => $u['displayName'] ?? $u['username'],
+                'email' => $u['email'] ?? '',
                 'isAdmin' => isAdmin($u['id']),
+                'blocked' => !empty($u['blocked']),
+                'blockedAt' => $u['blockedAt'] ?? null,
                 'createdAt' => $u['createdAt'] ?? '',
                 'strainCount' => count($strains),
                 'totalSpent' => round($totalSpent, 2),
@@ -897,6 +995,7 @@ Return ONLY valid JSON.";
             'id' => $targetUser['id'],
             'username' => $targetUser['username'],
             'displayName' => $targetUser['displayName'] ?? $targetUser['username'],
+            'email' => $targetUser['email'] ?? '',
             'isAdmin' => isAdmin($targetUser['id']),
             'createdAt' => $targetUser['createdAt'] ?? '',
             'settings' => $targetUser['settings'] ?? [],
@@ -974,39 +1073,114 @@ Return ONLY valid JSON.";
         $allStores = [];
         $allTypes = ['indica' => 0, 'sativa' => 0, 'hybrid' => 0];
         $monthlyGlobal = [];
+        $yearlyGlobal = [];
+        $weeklyGlobal = [];
         $userGrowth = [];
+        $strainCounts = [];
+        $totalRatings = 0;
+        $ratedCount = 0;
+        $ratingDist = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
+        $allTerpenes = [];
+        $allEffects = [];
+        $blockedCount = 0;
+        $purchasesByUser = [];
 
         foreach ($allUsers as $u) {
             $month = substr($u['createdAt'] ?? '', 0, 7);
             if ($month) $userGrowth[$month] = ($userGrowth[$month] ?? 0) + 1;
+            if (!empty($u['blocked'])) $blockedCount++;
 
+            $userSpent = 0;
             foreach ($u['strains'] ?? [] as $s) {
                 $totalStrains++;
-                $totalSpent += floatval($s['price'] ?? 0);
+                $price = floatval($s['price'] ?? 0);
+                $totalSpent += $price;
+                $userSpent += $price;
                 if (!empty($s['store'])) $allStores[$s['store']] = ($allStores[$s['store']] ?? 0) + 1;
                 $type = $s['type'] ?? 'hybrid';
                 if (isset($allTypes[$type])) $allTypes[$type]++;
                 $date = $s['purchaseDate'] ?? '';
                 if ($date) {
                     $m = substr($date, 0, 7);
-                    $monthlyGlobal[$m] = ($monthlyGlobal[$m] ?? 0) + floatval($s['price'] ?? 0);
+                    $y = substr($date, 0, 4);
+                    $monthlyGlobal[$m] = ($monthlyGlobal[$m] ?? 0) + $price;
+                    $yearlyGlobal[$y] = ($yearlyGlobal[$y] ?? 0) + $price;
+                    // ISO week
+                    $ts = strtotime($date);
+                    if ($ts) {
+                        $wk = date('o-\WW', $ts);
+                        $weeklyGlobal[$wk] = ($weeklyGlobal[$wk] ?? 0) + $price;
+                    }
+                }
+                $name = strtolower(trim($s['name'] ?? ''));
+                if ($name) $strainCounts[$name] = ($strainCounts[$name] ?? ['count' => 0, 'name' => $s['name'], 'totalSpent' => 0, 'totalRating' => 0, 'rated' => 0]);
+                if ($name) {
+                    $strainCounts[$name]['count']++;
+                    $strainCounts[$name]['totalSpent'] += $price;
+                    $rating = intval($s['rating'] ?? 0);
+                    if ($rating >= 1 && $rating <= 5) {
+                        $strainCounts[$name]['totalRating'] += $rating;
+                        $strainCounts[$name]['rated']++;
+                    }
+                }
+                $rating = intval($s['rating'] ?? 0);
+                if ($rating >= 1 && $rating <= 5) {
+                    $totalRatings += $rating;
+                    $ratedCount++;
+                    $ratingDist[$rating]++;
+                }
+                foreach ($s['terpenes'] ?? [] as $t) {
+                    $allTerpenes[$t] = ($allTerpenes[$t] ?? 0) + 1;
+                }
+                foreach ($s['effects'] ?? [] as $e) {
+                    $allEffects[$e] = ($allEffects[$e] ?? 0) + 1;
                 }
             }
+            $purchasesByUser[$u['username'] ?? $u['id']] = $userSpent;
         }
 
         ksort($monthlyGlobal);
+        ksort($yearlyGlobal);
+        ksort($weeklyGlobal);
         ksort($userGrowth);
         arsort($allStores);
+        arsort($strainCounts);
+        arsort($allTerpenes);
+        arsort($allEffects);
+        arsort($purchasesByUser);
+
+        // Build top 10 strains
+        $topStrains = [];
+        $i = 0;
+        foreach ($strainCounts as $key => $data) {
+            if ($i >= 10) break;
+            $topStrains[] = [
+                'name' => $data['name'],
+                'count' => $data['count'],
+                'totalSpent' => round($data['totalSpent'], 2),
+                'avgRating' => $data['rated'] > 0 ? round($data['totalRating'] / $data['rated'], 1) : null,
+            ];
+            $i++;
+        }
 
         jsonResponse([
             'totalUsers' => count($allUsers),
             'totalStrains' => $totalStrains,
             'totalSpent' => round($totalSpent, 2),
             'avgStrainsPerUser' => count($allUsers) ? round($totalStrains / count($allUsers), 1) : 0,
+            'avgRating' => $ratedCount > 0 ? round($totalRatings / $ratedCount, 1) : 0,
             'storeCount' => count($allStores),
+            'blockedUsers' => $blockedCount,
             'strainsByType' => $allTypes,
+            'ratingDistribution' => $ratingDist,
             'topStores' => array_slice($allStores, 0, 10, true),
+            'topStrains' => $topStrains,
+            'topTerpenes' => array_slice($allTerpenes, 0, 10, true),
+            'topEffects' => array_slice($allEffects, 0, 10, true),
             'monthlySpending' => $monthlyGlobal,
+            'yearlySpending' => $yearlyGlobal,
+            'weeklySpending' => array_slice($weeklyGlobal, -26, null, true), // last 26 weeks
+            'spendingByUser' => array_slice($purchasesByUser, 0, 10, true),
             'userGrowth' => $userGrowth,
         ]);
         break;
@@ -1021,7 +1195,7 @@ Return ONLY valid JSON.";
         $out = fopen('php://output', 'w');
 
         fputcsv($out, [
-            'Username', 'Display Name', 'Joined', 'Strain Name', 'Type',
+            'Username', 'Display Name', 'Email', 'Joined', 'Strain Name', 'Type',
             'Store', 'Price', 'Weight', 'THC %', 'CBD %', 'Rating',
             'Purchase Date', 'Terpenes', 'Effects', 'Batch Info', 'Review'
         ]);
@@ -1029,16 +1203,18 @@ Return ONLY valid JSON.";
         foreach ($allUsers as $u) {
             $username = $u['username'] ?? '';
             $displayName = $u['displayName'] ?? $username;
+            $email = $u['email'] ?? '';
             $joined = $u['createdAt'] ?? '';
 
             $strains = $u['strains'] ?? [];
             if (empty($strains)) {
-                fputcsv($out, [$username, $displayName, $joined, '', '', '', '', '', '', '', '', '', '', '', '', '']);
+                fputcsv($out, [$username, $displayName, $email, $joined, '', '', '', '', '', '', '', '', '', '', '', '', '']);
             } else {
                 foreach ($strains as $s) {
                     fputcsv($out, [
                         $username,
                         $displayName,
+                        $email,
                         $joined,
                         $s['name'] ?? '',
                         $s['type'] ?? '',
@@ -1060,6 +1236,24 @@ Return ONLY valid JSON.";
 
         fclose($out);
         exit;
+
+    case 'admin-get-settings':
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $settings = loadSettings();
+        jsonResponse(['apiKey' => $settings['apiKey'] ?? '']);
+        break;
+
+    case 'admin-save-settings':
+        if ($method !== 'POST') errorResponse('POST required', 405);
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $input = getInput();
+        $settings = loadSettings();
+        $settings['apiKey'] = $input['apiKey'] ?? '';
+        saveSettings($settings);
+        jsonResponse(['success' => true]);
+        break;
 
     default:
         jsonResponse([
