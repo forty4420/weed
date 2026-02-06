@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Strain Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
 :root {
   --bg: #121212;
@@ -153,6 +154,49 @@ textarea { resize:vertical; min-height:80px; }
   .header-actions { justify-content:flex-end; }
 }
 
+/* Admin Dashboard */
+.admin-container { max-width:1200px; margin:0 auto; padding:16px; }
+.admin-header { display:flex; align-items:center; justify-content:space-between; padding:16px 0; border-bottom:1px solid var(--border); margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+.admin-header h1 { font-size:22px; color:var(--red); }
+.admin-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:20px; }
+.admin-tab { padding:12px 20px; font-size:14px; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; background:none; transition:all .2s; }
+.admin-tab.active { color:var(--red); border-bottom-color:var(--red); }
+
+.user-table { width:100%; border-collapse:collapse; }
+.user-table th { text-align:left; padding:10px 12px; font-size:12px; color:var(--text2); text-transform:uppercase; border-bottom:1px solid var(--border); }
+.user-table td { padding:10px 12px; font-size:13px; border-bottom:1px solid var(--border); }
+.user-table tr:hover td { background:var(--card); }
+.user-table .user-actions { display:flex; gap:6px; }
+
+.admin-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:24px; }
+.admin-stat-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; }
+.admin-stat-value { font-size:28px; font-weight:700; color:var(--green); }
+.admin-stat-label { font-size:12px; color:var(--text2); margin-top:4px; }
+
+.chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(400px,1fr)); gap:16px; margin-bottom:24px; }
+.chart-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+.chart-card h3 { font-size:14px; margin-bottom:12px; color:var(--text); }
+.chart-card canvas { max-height:300px; }
+
+.user-detail-header { display:flex; align-items:center; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+.user-avatar { width:64px; height:64px; border-radius:50%; background:var(--card); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; color:var(--green); }
+.user-detail-info h2 { font-size:20px; }
+.user-detail-info p { font-size:13px; color:var(--text2); }
+
+.back-btn { background:none; border:none; color:var(--text2); font-size:13px; cursor:pointer; padding:4px 0; margin-bottom:12px; display:inline-flex; align-items:center; gap:4px; }
+.back-btn:hover { color:var(--green); }
+
+.strain-mini-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
+.strain-mini-name { font-size:13px; font-weight:500; }
+.strain-mini-meta { font-size:11px; color:var(--text2); display:flex; gap:8px; margin-top:2px; }
+
+@media (max-width:600px) {
+  .chart-grid { grid-template-columns:1fr; }
+  .admin-stats-grid { grid-template-columns:repeat(2,1fr); }
+  .user-table { font-size:11px; }
+  .user-table th, .user-table td { padding:6px 8px; }
+}
+
 .hidden { display:none !important; }
 </style>
 </head>
@@ -215,6 +259,7 @@ textarea { resize:vertical; min-height:80px; }
       <h1>Strain Tracker</h1>
       <div class="header-actions">
         <span id="userGreeting" style="font-size:13px;color:var(--text2)"></span>
+        <button class="btn btn-sm" id="adminBtn" style="background:var(--red);color:#fff;display:none" onclick="showAdminPanel()">Admin</button>
         <button class="btn btn-outline btn-sm" onclick="showProfile()">Profile</button>
         <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
       </div>
@@ -257,6 +302,61 @@ textarea { resize:vertical; min-height:80px; }
 
     <!-- Strain List -->
     <div id="strainList"></div>
+  </div>
+</div>
+
+<!-- ============ ADMIN VIEW ============ -->
+<div id="adminView" class="hidden">
+  <div class="admin-container">
+    <div class="admin-header">
+      <h1>Admin Dashboard</h1>
+      <div class="header-actions">
+        <button class="btn btn-outline btn-sm" onclick="hideAdminPanel()">Back to App</button>
+        <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="switchAdminTab('overview',this)">Overview</button>
+      <button class="admin-tab" onclick="switchAdminTab('users',this)">Users</button>
+      <button class="admin-tab" onclick="switchAdminTab('userDetail',this)" id="userDetailTab" style="display:none">User Detail</button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div id="adminOverviewTab">
+      <div class="admin-stats-grid" id="adminStatsGrid"></div>
+      <div class="chart-grid" id="adminCharts"></div>
+    </div>
+
+    <!-- Users Tab -->
+    <div id="adminUsersTab" class="hidden">
+      <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center">
+        <input type="text" id="adminUserSearch" placeholder="Search users..." oninput="filterAdminUsers()" style="max-width:300px">
+        <span id="adminUserCount" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Strains</th>
+              <th>Spent</th>
+              <th>Dispensaries</th>
+              <th>Visits</th>
+              <th>Joined</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminUserList"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- User Detail Tab -->
+    <div id="adminUserDetailTab" class="hidden">
+      <button class="back-btn" onclick="switchAdminTab('users',document.querySelector('.admin-tab:nth-child(2)'))">&#8592; Back to Users</button>
+      <div id="adminUserDetail"></div>
+    </div>
   </div>
 </div>
 
@@ -356,13 +456,16 @@ function doLogout() {
 function showAuth() {
   document.getElementById('authView').classList.remove('hidden');
   document.getElementById('appView').classList.add('hidden');
+  document.getElementById('adminView').classList.add('hidden');
   loadPublicStats();
 }
 
 async function showApp() {
   document.getElementById('authView').classList.add('hidden');
+  document.getElementById('adminView').classList.add('hidden');
   document.getElementById('appView').classList.remove('hidden');
   document.getElementById('userGreeting').textContent = 'Hi, ' + (state.user?.displayName || state.user?.username || '');
+  document.getElementById('adminBtn').style.display = state.user?.isAdmin ? '' : 'none';
   await loadStrains();
 }
 
@@ -1093,6 +1196,351 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+// ============ ADMIN ============
+let adminUsers = [];
+let adminChartInstances = [];
+
+function showAdminPanel() {
+  document.getElementById('appView').classList.add('hidden');
+  document.getElementById('adminView').classList.remove('hidden');
+  switchAdminTab('overview', document.querySelector('.admin-tab'));
+  loadAdminOverview();
+  loadAdminUsers();
+}
+
+function hideAdminPanel() {
+  document.getElementById('adminView').classList.add('hidden');
+  document.getElementById('appView').classList.remove('hidden');
+}
+
+function switchAdminTab(tab, btn) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('adminOverviewTab').classList.toggle('hidden', tab !== 'overview');
+  document.getElementById('adminUsersTab').classList.toggle('hidden', tab !== 'users');
+  document.getElementById('adminUserDetailTab').classList.toggle('hidden', tab !== 'userDetail');
+  if (tab === 'userDetail') document.getElementById('userDetailTab').style.display = '';
+}
+
+function destroyAdminCharts() {
+  adminChartInstances.forEach(c => c.destroy());
+  adminChartInstances = [];
+}
+
+const chartColors = {
+  green: '#4caf50', red: '#f44336', orange: '#ff9800', blue: '#2196f3',
+  purple: '#9c27b0', teal: '#009688', pink: '#e91e63', amber: '#ffc107',
+  indigo: '#3f51b5', lime: '#cddc39',
+  greenAlpha: 'rgba(76,175,80,0.3)', blueAlpha: 'rgba(33,150,243,0.3)',
+  redAlpha: 'rgba(244,67,54,0.3)', orangeAlpha: 'rgba(255,152,0,0.3)',
+  purpleAlpha: 'rgba(156,39,176,0.3)',
+};
+
+async function loadAdminOverview() {
+  try {
+    const stats = await api('admin-stats');
+    document.getElementById('adminStatsGrid').innerHTML = `
+      <div class="admin-stat-card"><div class="admin-stat-value">${stats.totalUsers}</div><div class="admin-stat-label">Total Users</div></div>
+      <div class="admin-stat-card"><div class="admin-stat-value">${stats.totalStrains}</div><div class="admin-stat-label">Total Strains</div></div>
+      <div class="admin-stat-card"><div class="admin-stat-value">$${stats.totalSpent.toFixed(2)}</div><div class="admin-stat-label">Total Spent (All Users)</div></div>
+      <div class="admin-stat-card"><div class="admin-stat-value">${stats.avgStrainsPerUser}</div><div class="admin-stat-label">Avg Strains/User</div></div>
+      <div class="admin-stat-card"><div class="admin-stat-value">${stats.storeCount}</div><div class="admin-stat-label">Dispensaries</div></div>
+    `;
+
+    destroyAdminCharts();
+    const chartsHtml = `
+      <div class="chart-card"><h3>Monthly Spending (All Users)</h3><canvas id="adminMonthlyChart"></canvas></div>
+      <div class="chart-card"><h3>Strain Types Distribution</h3><canvas id="adminTypesChart"></canvas></div>
+      <div class="chart-card"><h3>Top Dispensaries</h3><canvas id="adminStoresChart"></canvas></div>
+      <div class="chart-card"><h3>User Growth</h3><canvas id="adminGrowthChart"></canvas></div>
+    `;
+    document.getElementById('adminCharts').innerHTML = chartsHtml;
+
+    // Monthly spending line chart
+    const monthLabels = Object.keys(stats.monthlySpending);
+    const monthValues = Object.values(stats.monthlySpending);
+    if (monthLabels.length) {
+      adminChartInstances.push(new Chart(document.getElementById('adminMonthlyChart'), {
+        type: 'line',
+        data: {
+          labels: monthLabels,
+          datasets: [{
+            label: 'Spending ($)',
+            data: monthValues,
+            borderColor: chartColors.green,
+            backgroundColor: chartColors.greenAlpha,
+            fill: true, tension: 0.3, pointRadius: 4,
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' } } }, scales: { x: { ticks: { color: '#999' }, grid: { color: '#333' } }, y: { ticks: { color: '#999', callback: v => '$' + v }, grid: { color: '#333' } } } }
+      }));
+    }
+
+    // Types doughnut
+    const types = stats.strainsByType;
+    adminChartInstances.push(new Chart(document.getElementById('adminTypesChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Indica', 'Sativa', 'Hybrid'],
+        datasets: [{ data: [types.indica, types.sativa, types.hybrid], backgroundColor: [chartColors.purple, chartColors.orange, chartColors.green], borderWidth: 0 }]
+      },
+      options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' } } } }
+    }));
+
+    // Top stores bar chart
+    const storeNames = Object.keys(stats.topStores);
+    const storeVals = Object.values(stats.topStores);
+    if (storeNames.length) {
+      adminChartInstances.push(new Chart(document.getElementById('adminStoresChart'), {
+        type: 'bar',
+        data: {
+          labels: storeNames,
+          datasets: [{ label: 'Purchases', data: storeVals, backgroundColor: chartColors.blue, borderRadius: 4 }]
+        },
+        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#999' }, grid: { color: '#333' } }, y: { ticks: { color: '#999' }, grid: { color: '#333' } } } }
+      }));
+    }
+
+    // User growth
+    const growthLabels = Object.keys(stats.userGrowth);
+    let cumulative = 0;
+    const growthData = Object.values(stats.userGrowth).map(v => { cumulative += v; return cumulative; });
+    if (growthLabels.length) {
+      adminChartInstances.push(new Chart(document.getElementById('adminGrowthChart'), {
+        type: 'line',
+        data: {
+          labels: growthLabels,
+          datasets: [{ label: 'Total Users', data: growthData, borderColor: chartColors.blue, backgroundColor: chartColors.blueAlpha, fill: true, tension: 0.3 }]
+        },
+        options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' } } }, scales: { x: { ticks: { color: '#999' }, grid: { color: '#333' } }, y: { ticks: { color: '#999' }, grid: { color: '#333' } } } }
+      }));
+    }
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadAdminUsers() {
+  try {
+    adminUsers = await api('admin-users');
+    renderAdminUsers();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function filterAdminUsers() {
+  renderAdminUsers();
+}
+
+function renderAdminUsers() {
+  const search = (document.getElementById('adminUserSearch')?.value || '').toLowerCase();
+  const filtered = adminUsers.filter(u => {
+    if (!search) return true;
+    return u.username.toLowerCase().includes(search) || (u.displayName || '').toLowerCase().includes(search);
+  });
+  document.getElementById('adminUserCount').textContent = `${filtered.length} user(s)`;
+
+  document.getElementById('adminUserList').innerHTML = filtered.map(u => `
+    <tr>
+      <td>
+        <div style="font-weight:500">${esc(u.displayName || u.username)}${u.isAdmin ? ' <span style="color:var(--red);font-size:11px">[ADMIN]</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--text2)">@${esc(u.username)}</div>
+      </td>
+      <td>${u.strainCount}</td>
+      <td>$${u.totalSpent.toFixed(2)}</td>
+      <td>${u.storeCount}</td>
+      <td>${u.visitCount}</td>
+      <td style="font-size:11px">${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}</td>
+      <td>
+        <div class="user-actions">
+          <button class="btn btn-outline btn-sm" onclick="viewUserDetail('${esc(u.id)}')">View</button>
+          ${!u.isAdmin ? `<button class="btn btn-red btn-sm" onclick="confirmDeleteUser('${esc(u.id)}','${esc(u.username)}')">Delete</button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function confirmDeleteUser(userId, username) {
+  showModal('Delete User', `
+    <p>Are you sure you want to delete <strong>${username}</strong>?</p>
+    <p style="color:var(--red);font-size:13px;margin-top:8px">This will permanently delete their account, all strains, photos, and backups.</p>
+  `, [
+    { text: 'Cancel', class: 'btn btn-outline', onclick: 'closeModal()' },
+    { text: 'Delete User', class: 'btn btn-red', onclick: `doDeleteUser('${userId}')` },
+  ]);
+}
+
+async function doDeleteUser(userId) {
+  try {
+    await api('admin-delete-user', { method: 'POST', body: { userId } });
+    closeModal();
+    await loadAdminUsers();
+    toast('User deleted');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+let userDetailCharts = [];
+
+async function viewUserDetail(userId) {
+  switchAdminTab('userDetail', document.getElementById('userDetailTab'));
+  const el = document.getElementById('adminUserDetail');
+  el.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span> Loading user data...</div>';
+
+  try {
+    const data = await api(`admin-user-detail&id=${userId}`);
+    const a = data.analytics;
+    const initial = (data.displayName || data.username || '?')[0].toUpperCase();
+
+    userDetailCharts.forEach(c => c.destroy());
+    userDetailCharts = [];
+
+    el.innerHTML = `
+      <div class="user-detail-header">
+        <div class="user-avatar">${initial}</div>
+        <div class="user-detail-info">
+          <h2>${esc(data.displayName || data.username)}${data.isAdmin ? ' <span style="color:var(--red);font-size:14px">[ADMIN]</span>' : ''}</h2>
+          <p>@${esc(data.username)} &middot; Joined ${data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}</p>
+        </div>
+      </div>
+
+      <div class="admin-stats-grid">
+        <div class="admin-stat-card"><div class="admin-stat-value">${a.totalStrains}</div><div class="admin-stat-label">Total Strains</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">$${a.totalSpent.toFixed(2)}</div><div class="admin-stat-label">Total Spent</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">$${a.avgPrice.toFixed(2)}</div><div class="admin-stat-label">Avg Price</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${a.avgRating || '-'}</div><div class="admin-stat-label">Avg Rating</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${a.storeCount}</div><div class="admin-stat-label">Dispensaries</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${a.uniqueVisitDays}</div><div class="admin-stat-label">Visit Days</div></div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="chart-card"><h3>Monthly Spending</h3><canvas id="udMonthly"></canvas></div>
+        <div class="chart-card"><h3>Strain Types</h3><canvas id="udTypes"></canvas></div>
+        <div class="chart-card"><h3>Rating Distribution</h3><canvas id="udRatings"></canvas></div>
+        <div class="chart-card"><h3>Dispensary Visits</h3><canvas id="udStores"></canvas></div>
+        <div class="chart-card"><h3>Dispensary Spending</h3><canvas id="udStoreSpend"></canvas></div>
+        <div class="chart-card"><h3>Purchase Day of Week</h3><canvas id="udWeekday"></canvas></div>
+        <div class="chart-card"><h3>Top Terpenes</h3><canvas id="udTerpenes"></canvas></div>
+        <div class="chart-card"><h3>Top Effects</h3><canvas id="udEffects"></canvas></div>
+      </div>
+
+      <h3 style="margin-bottom:12px;font-size:16px">All Strains (${data.strains.length})</h3>
+      <div id="udStrainList"></div>
+    `;
+
+    // Monthly spending
+    const mLabels = Object.keys(a.monthlySpending);
+    const mVals = Object.values(a.monthlySpending);
+    if (mLabels.length) {
+      userDetailCharts.push(new Chart(document.getElementById('udMonthly'), {
+        type: 'bar',
+        data: { labels: mLabels, datasets: [{ label: 'Spent ($)', data: mVals, backgroundColor: chartColors.green, borderRadius: 4 }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#999' }, grid: { color: '#333' } }, y: { ticks: { color: '#999', callback: v => '$' + v }, grid: { color: '#333' } } } }
+      }));
+    }
+
+    // Types pie
+    const t = a.strainsByType;
+    userDetailCharts.push(new Chart(document.getElementById('udTypes'), {
+      type: 'pie',
+      data: { labels: ['Indica', 'Sativa', 'Hybrid'], datasets: [{ data: [t.indica, t.sativa, t.hybrid], backgroundColor: ['#7b1fa2', '#f57c00', '#388e3c'], borderWidth: 0 }] },
+      options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' } } } }
+    }));
+
+    // Rating distribution
+    const rLabels = ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'];
+    const rVals = Object.values(a.ratingDistribution);
+    userDetailCharts.push(new Chart(document.getElementById('udRatings'), {
+      type: 'bar',
+      data: { labels: rLabels, datasets: [{ label: 'Count', data: rVals, backgroundColor: [chartColors.red, chartColors.orange, chartColors.amber, chartColors.lime, chartColors.green], borderRadius: 4 }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#999' }, grid: { color: '#333' } }, y: { ticks: { color: '#999', stepSize: 1 }, grid: { color: '#333' } } } }
+    }));
+
+    // Store visits - doughnut
+    const svLabels = Object.keys(a.storeVisits);
+    const svVals = Object.values(a.storeVisits);
+    if (svLabels.length) {
+      const storeColors = svLabels.map((_, i) => [chartColors.blue, chartColors.green, chartColors.orange, chartColors.purple, chartColors.red, chartColors.teal, chartColors.pink, chartColors.amber, chartColors.indigo, chartColors.lime][i % 10]);
+      userDetailCharts.push(new Chart(document.getElementById('udStores'), {
+        type: 'doughnut',
+        data: { labels: svLabels, datasets: [{ data: svVals, backgroundColor: storeColors, borderWidth: 0 }] },
+        options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' }, position: 'bottom' } } }
+      }));
+    }
+
+    // Store spending - horizontal bar
+    const ssLabels = Object.keys(a.storeSpending);
+    const ssVals = Object.values(a.storeSpending);
+    if (ssLabels.length) {
+      userDetailCharts.push(new Chart(document.getElementById('udStoreSpend'), {
+        type: 'bar',
+        data: { labels: ssLabels, datasets: [{ label: 'Spent ($)', data: ssVals, backgroundColor: chartColors.blue, borderRadius: 4 }] },
+        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#999', callback: v => '$' + v }, grid: { color: '#333' } }, y: { ticks: { color: '#999' }, grid: { color: '#333' } } } }
+      }));
+    }
+
+    // Weekday distribution - radar
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    userDetailCharts.push(new Chart(document.getElementById('udWeekday'), {
+      type: 'radar',
+      data: { labels: dayLabels, datasets: [{ label: 'Purchases', data: a.weekdayDistribution, borderColor: chartColors.green, backgroundColor: chartColors.greenAlpha, pointBackgroundColor: chartColors.green }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { r: { ticks: { color: '#999', stepSize: 1, backdropColor: 'transparent' }, grid: { color: '#444' }, angleLines: { color: '#444' }, pointLabels: { color: '#e0e0e0' } } } }
+    }));
+
+    // Top terpenes - polar area
+    const tpLabels = Object.keys(a.topTerpenes);
+    const tpVals = Object.values(a.topTerpenes);
+    if (tpLabels.length) {
+      const terpColors = tpLabels.map((_, i) => [chartColors.green, chartColors.teal, chartColors.lime, chartColors.blue, chartColors.purple, chartColors.orange, chartColors.pink, chartColors.amber, chartColors.indigo, chartColors.red][i % 10]);
+      userDetailCharts.push(new Chart(document.getElementById('udTerpenes'), {
+        type: 'polarArea',
+        data: { labels: tpLabels, datasets: [{ data: tpVals, backgroundColor: terpColors.map(c => c + '99'), borderWidth: 0 }] },
+        options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' }, position: 'bottom' } }, scales: { r: { ticks: { color: '#999', backdropColor: 'transparent' }, grid: { color: '#444' } } } }
+      }));
+    }
+
+    // Top effects - horizontal bar
+    const efLabels = Object.keys(a.topEffects);
+    const efVals = Object.values(a.topEffects);
+    if (efLabels.length) {
+      userDetailCharts.push(new Chart(document.getElementById('udEffects'), {
+        type: 'bar',
+        data: { labels: efLabels, datasets: [{ label: 'Count', data: efVals, backgroundColor: chartColors.purple, borderRadius: 4 }] },
+        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#999', stepSize: 1 }, grid: { color: '#333' } }, y: { ticks: { color: '#999' }, grid: { color: '#333' } } } }
+      }));
+    }
+
+    // Strain list
+    const strainListEl = document.getElementById('udStrainList');
+    if (data.strains.length) {
+      strainListEl.innerHTML = data.strains.map(s => {
+        const typeClass = s.type ? `type-${s.type}` : '';
+        const stars = s.rating ? '&#9733;'.repeat(s.rating) + '&#9734;'.repeat(5 - s.rating) : '';
+        return `
+          <div class="strain-mini-card">
+            <div>
+              <div class="strain-mini-name">
+                ${esc(s.name)}
+                ${s.type ? `<span class="strain-type ${typeClass}" style="font-size:10px;margin-left:6px">${s.type}</span>` : ''}
+              </div>
+              <div class="strain-mini-meta">
+                ${s.store ? `<span>${esc(s.store)}</span>` : ''}
+                ${s.price ? `<span>$${parseFloat(s.price).toFixed(2)}</span>` : ''}
+                ${s.thc ? `<span>THC: ${esc(s.thc)}%</span>` : ''}
+                ${s.weight ? `<span>${esc(s.weight)}</span>` : ''}
+                ${s.purchaseDate ? `<span>${s.purchaseDate}</span>` : ''}
+              </div>
+            </div>
+            <div style="text-align:right">
+              ${stars ? `<div class="strain-rating" style="font-size:12px">${stars}</div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+    } else {
+      strainListEl.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:16px">No strains yet.</div>';
+    }
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--red);padding:20px">${e.message}</div>`;
+  }
 }
 
 // ============ INIT ============

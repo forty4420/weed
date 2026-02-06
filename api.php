@@ -7,6 +7,7 @@
 
 // ============ CONFIGURATION ============
 define('ADMIN_PASSWORD', 'Fuctit4420!');       // Admin password
+define('ADMIN_USERS', ['forty4420']);           // Usernames with admin access
 define('OPENROUTER_API_KEY', '');              // Your OpenRouter API key
 define('DATA_DIR', __DIR__ . '/data');
 define('UPLOAD_DIR', __DIR__ . '/uploads');
@@ -107,6 +108,28 @@ function authenticateRequest() {
         errorResponse('Token expired', 401);
     }
     return $t['userId'];
+}
+
+function isAdmin($userId) {
+    if (in_array($userId, ADMIN_USERS)) return true;
+    $user = loadUser($userId);
+    return $user && !empty($user['isAdmin']);
+}
+
+function requireAdmin($userId) {
+    if (!isAdmin($userId)) {
+        errorResponse('Admin access required', 403);
+    }
+}
+
+function getAllUsers() {
+    $files = glob(DATA_DIR . '/users/*.json');
+    $users = [];
+    foreach ($files as $f) {
+        $u = json_decode(file_get_contents($f), true);
+        if ($u) $users[] = $u;
+    }
+    return $users;
 }
 
 function createBackup($userId) {
@@ -275,6 +298,7 @@ switch ($action) {
                 'id' => $userId,
                 'username' => $username,
                 'displayName' => $displayName,
+                'isAdmin' => false,
             ]
         ]);
         break;
@@ -302,6 +326,7 @@ switch ($action) {
                 'id' => $userId,
                 'username' => $user['username'],
                 'displayName' => $user['displayName'],
+                'isAdmin' => isAdmin($userId),
             ]
         ]);
         break;
@@ -723,6 +748,219 @@ Return ONLY valid JSON.";
         jsonResponse($user);
         break;
 
+    // ---- ADMIN ----
+    case 'admin-users':
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $allUsers = getAllUsers();
+        $result = [];
+        foreach ($allUsers as $u) {
+            $strains = $u['strains'] ?? [];
+            $totalSpent = 0;
+            $stores = [];
+            $types = ['indica' => 0, 'sativa' => 0, 'hybrid' => 0];
+            $purchaseDates = [];
+            foreach ($strains as $s) {
+                $totalSpent += floatval($s['price'] ?? 0);
+                if (!empty($s['store'])) $stores[$s['store']] = ($stores[$s['store']] ?? 0) + 1;
+                if (isset($types[$s['type'] ?? ''])) $types[$s['type']]++;
+                if (!empty($s['purchaseDate'])) $purchaseDates[] = $s['purchaseDate'];
+            }
+            $result[] = [
+                'id' => $u['id'],
+                'username' => $u['username'],
+                'displayName' => $u['displayName'] ?? $u['username'],
+                'isAdmin' => !empty($u['isAdmin']),
+                'createdAt' => $u['createdAt'] ?? '',
+                'strainCount' => count($strains),
+                'totalSpent' => round($totalSpent, 2),
+                'storeCount' => count($stores),
+                'topStore' => $stores ? array_search(max($stores), $stores) : '',
+                'types' => $types,
+                'visitCount' => count(array_unique($purchaseDates)),
+            ];
+        }
+        jsonResponse($result);
+        break;
+
+    case 'admin-user-detail':
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $targetId = $_GET['id'] ?? '';
+        if (empty($targetId)) errorResponse('User ID required');
+        $targetUser = loadUser($targetId);
+        if (!$targetUser) errorResponse('User not found', 404);
+
+        $strains = $targetUser['strains'] ?? [];
+        $totalSpent = 0;
+        $stores = [];
+        $monthlySpending = [];
+        $strainsByType = ['indica' => 0, 'sativa' => 0, 'hybrid' => 0];
+        $ratingDist = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
+        $purchaseDates = [];
+        $storeSpending = [];
+        $terpFreq = [];
+        $effectFreq = [];
+        $weekdayCounts = [0,0,0,0,0,0,0]; // Sun-Sat
+
+        foreach ($strains as $s) {
+            $price = floatval($s['price'] ?? 0);
+            $totalSpent += $price;
+            $store = $s['store'] ?? '';
+            if ($store) {
+                $stores[$store] = ($stores[$store] ?? 0) + 1;
+                $storeSpending[$store] = ($storeSpending[$store] ?? 0) + $price;
+            }
+            $type = $s['type'] ?? 'hybrid';
+            if (isset($strainsByType[$type])) $strainsByType[$type]++;
+
+            $rating = intval($s['rating'] ?? 0);
+            if ($rating >= 1 && $rating <= 5) $ratingDist[$rating]++;
+
+            $date = $s['purchaseDate'] ?? '';
+            if ($date) {
+                $purchaseDates[] = $date;
+                $month = substr($date, 0, 7);
+                $monthlySpending[$month] = ($monthlySpending[$month] ?? 0) + $price;
+                $dow = date('w', strtotime($date));
+                $weekdayCounts[$dow]++;
+            }
+
+            foreach ($s['terpenes'] ?? [] as $t) {
+                $terpFreq[$t] = ($terpFreq[$t] ?? 0) + 1;
+            }
+            foreach ($s['effects'] ?? [] as $e) {
+                $effectFreq[$e] = ($effectFreq[$e] ?? 0) + 1;
+            }
+        }
+
+        ksort($monthlySpending);
+        arsort($terpFreq);
+        arsort($effectFreq);
+        arsort($stores);
+        arsort($storeSpending);
+
+        $rated = array_filter($strains, function($s) { return ($s['rating'] ?? 0) > 0; });
+        $avgRating = count($rated) ? round(array_sum(array_map(function($s) { return $s['rating']; }, $rated)) / count($rated), 1) : 0;
+
+        jsonResponse([
+            'id' => $targetUser['id'],
+            'username' => $targetUser['username'],
+            'displayName' => $targetUser['displayName'] ?? $targetUser['username'],
+            'isAdmin' => !empty($targetUser['isAdmin']),
+            'createdAt' => $targetUser['createdAt'] ?? '',
+            'settings' => $targetUser['settings'] ?? [],
+            'strains' => $strains,
+            'analytics' => [
+                'totalStrains' => count($strains),
+                'totalSpent' => round($totalSpent, 2),
+                'avgPrice' => count($strains) ? round($totalSpent / count($strains), 2) : 0,
+                'avgRating' => $avgRating,
+                'storeCount' => count($stores),
+                'uniqueVisitDays' => count(array_unique($purchaseDates)),
+                'strainsByType' => $strainsByType,
+                'ratingDistribution' => $ratingDist,
+                'monthlySpending' => $monthlySpending,
+                'storeVisits' => $stores,
+                'storeSpending' => $storeSpending,
+                'topTerpenes' => array_slice($terpFreq, 0, 10, true),
+                'topEffects' => array_slice($effectFreq, 0, 10, true),
+                'weekdayDistribution' => $weekdayCounts,
+            ],
+        ]);
+        break;
+
+    case 'admin-delete-user':
+        if ($method !== 'POST') errorResponse('POST required', 405);
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $input = getInput();
+        $targetId = $input['userId'] ?? '';
+        if (empty($targetId)) errorResponse('User ID required');
+        if ($targetId === $userId) errorResponse('Cannot delete yourself');
+
+        $targetUser = loadUser($targetId);
+        if (!$targetUser) errorResponse('User not found', 404);
+
+        // Delete user file
+        $userFile = getUserFile($targetId);
+        if (file_exists($userFile)) unlink($userFile);
+
+        // Delete user uploads
+        $uploadDir = UPLOAD_DIR . '/' . $targetId;
+        if (is_dir($uploadDir)) {
+            $it = new RecursiveDirectoryIterator($uploadDir, RecursiveDirectoryIterator::SKIP_DOTS);
+            $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
+            foreach ($files as $f) {
+                if ($f->isDir()) rmdir($f->getRealPath());
+                else unlink($f->getRealPath());
+            }
+            rmdir($uploadDir);
+        }
+
+        // Delete user backups
+        $backupDir = DATA_DIR . '/backups/' . $targetId;
+        if (is_dir($backupDir)) {
+            array_map('unlink', glob($backupDir . '/*'));
+            rmdir($backupDir);
+        }
+
+        // Remove user tokens
+        $tokens = loadTokens();
+        foreach ($tokens as $tk => $td) {
+            if ($td['userId'] === $targetId) unset($tokens[$tk]);
+        }
+        saveTokens($tokens);
+
+        jsonResponse(['success' => true]);
+        break;
+
+    case 'admin-stats':
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $allUsers = getAllUsers();
+        $totalStrains = 0;
+        $totalSpent = 0;
+        $allStores = [];
+        $allTypes = ['indica' => 0, 'sativa' => 0, 'hybrid' => 0];
+        $monthlyGlobal = [];
+        $userGrowth = [];
+
+        foreach ($allUsers as $u) {
+            $month = substr($u['createdAt'] ?? '', 0, 7);
+            if ($month) $userGrowth[$month] = ($userGrowth[$month] ?? 0) + 1;
+
+            foreach ($u['strains'] ?? [] as $s) {
+                $totalStrains++;
+                $totalSpent += floatval($s['price'] ?? 0);
+                if (!empty($s['store'])) $allStores[$s['store']] = ($allStores[$s['store']] ?? 0) + 1;
+                $type = $s['type'] ?? 'hybrid';
+                if (isset($allTypes[$type])) $allTypes[$type]++;
+                $date = $s['purchaseDate'] ?? '';
+                if ($date) {
+                    $m = substr($date, 0, 7);
+                    $monthlyGlobal[$m] = ($monthlyGlobal[$m] ?? 0) + floatval($s['price'] ?? 0);
+                }
+            }
+        }
+
+        ksort($monthlyGlobal);
+        ksort($userGrowth);
+        arsort($allStores);
+
+        jsonResponse([
+            'totalUsers' => count($allUsers),
+            'totalStrains' => $totalStrains,
+            'totalSpent' => round($totalSpent, 2),
+            'avgStrainsPerUser' => count($allUsers) ? round($totalStrains / count($allUsers), 1) : 0,
+            'storeCount' => count($allStores),
+            'strainsByType' => $allTypes,
+            'topStores' => array_slice($allStores, 0, 10, true),
+            'monthlySpending' => $monthlyGlobal,
+            'userGrowth' => $userGrowth,
+        ]);
+        break;
+
     default:
         jsonResponse([
             'app' => 'Cannabis Strain Tracker',
@@ -743,6 +981,10 @@ Return ONLY valid JSON.";
                 'GET /api.php?action=backups',
                 'POST /api.php?action=restore',
                 'GET /api.php?action=export',
+                'GET /api.php?action=admin-users',
+                'GET /api.php?action=admin-user-detail&id=X',
+                'POST /api.php?action=admin-delete-user',
+                'GET /api.php?action=admin-stats',
             ]
         ]);
 }
