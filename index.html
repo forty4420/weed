@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strain Tracker</title>
+<style>
+:root {
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --card: #252525;
+  --border: #333;
+  --text: #e0e0e0;
+  --text2: #999;
+  --green: #4caf50;
+  --green-dark: #388e3c;
+  --red: #f44336;
+  --orange: #ff9800;
+  --blue: #2196f3;
+  --purple: #9c27b0;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+a { color:var(--green); text-decoration:none; }
+button { cursor:pointer; border:none; font-family:inherit; font-size:14px; }
+input,textarea,select { font-family:inherit; font-size:14px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px; width:100%; outline:none; }
+input:focus,textarea:focus,select:focus { border-color:var(--green); }
+textarea { resize:vertical; min-height:80px; }
+
+/* Layout */
+.container { max-width:1000px; margin:0 auto; padding:16px; }
+.header { display:flex; align-items:center; justify-content:space-between; padding:16px 0; border-bottom:1px solid var(--border); margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+.header h1 { font-size:22px; color:var(--green); }
+.header-actions { display:flex; gap:8px; align-items:center; }
+
+/* Buttons */
+.btn { padding:8px 16px; border-radius:8px; font-weight:500; transition:all .2s; display:inline-flex; align-items:center; gap:6px; }
+.btn-green { background:var(--green); color:#fff; }
+.btn-green:hover { background:var(--green-dark); }
+.btn-red { background:var(--red); color:#fff; }
+.btn-red:hover { background:#c62828; }
+.btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+.btn-outline:hover { border-color:var(--green); color:var(--green); }
+.btn-sm { padding:5px 10px; font-size:12px; }
+.btn-icon { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0; }
+
+/* Cards */
+.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; }
+.strain-card { display:flex; gap:14px; position:relative; transition:transform .15s; }
+.strain-card:hover { transform:translateY(-1px); }
+.strain-thumb { width:80px; height:80px; border-radius:8px; object-fit:cover; background:var(--surface); flex-shrink:0; }
+.strain-thumb-placeholder { width:80px; height:80px; border-radius:8px; background:var(--surface); flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:28px; }
+.strain-info { flex:1; min-width:0; }
+.strain-name { font-size:16px; font-weight:600; margin-bottom:4px; }
+.strain-meta { font-size:12px; color:var(--text2); display:flex; flex-wrap:wrap; gap:8px; margin-bottom:4px; }
+.strain-meta span { display:inline-flex; align-items:center; gap:3px; }
+.strain-type { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:500; text-transform:uppercase; }
+.type-indica { background:#7b1fa2; color:#fff; }
+.type-sativa { background:#f57c00; color:#fff; }
+.type-hybrid { background:#388e3c; color:#fff; }
+.strain-rating { color:var(--orange); font-size:14px; }
+.strain-actions { position:absolute; top:8px; right:8px; display:flex; gap:4px; }
+.strain-delete { background:rgba(244,67,54,.15); color:var(--red); width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; border:none; cursor:pointer; }
+.strain-delete:hover { background:var(--red); color:#fff; }
+
+/* Stats */
+.stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:20px; }
+.stat-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center; }
+.stat-value { font-size:24px; font-weight:700; color:var(--green); }
+.stat-label { font-size:12px; color:var(--text2); margin-top:2px; }
+
+/* Search */
+.search-bar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+.search-bar input { flex:1; min-width:180px; }
+.filter-chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+.chip { padding:5px 12px; border-radius:16px; font-size:12px; border:1px solid var(--border); background:transparent; color:var(--text2); cursor:pointer; transition:all .2s; }
+.chip.active { background:var(--green); border-color:var(--green); color:#fff; }
+
+/* Modal */
+.modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.7); z-index:100; display:flex; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; width:100%; max-width:600px; margin:40px 0; }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+.modal-header h2 { font-size:18px; }
+.modal-body { padding:20px; }
+.modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+
+/* Form */
+.form-group { margin-bottom:14px; }
+.form-group label { display:block; font-size:13px; color:var(--text2); margin-bottom:5px; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.form-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+
+/* Photo gallery */
+.photo-gallery { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.photo-gallery img { width:70px; height:70px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid transparent; transition:border .2s; }
+.photo-gallery img:hover { border-color:var(--green); }
+.photo-upload-area { border:2px dashed var(--border); border-radius:8px; padding:20px; text-align:center; color:var(--text2); cursor:pointer; transition:border-color .2s; }
+.photo-upload-area:hover { border-color:var(--green); }
+.photo-upload-area input { display:none; }
+
+/* Lightbox */
+.lightbox { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.9); z-index:200; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.lightbox img { max-width:90%; max-height:90vh; border-radius:8px; }
+
+/* Terpenes */
+.terpene-tags { display:flex; flex-wrap:wrap; gap:4px; }
+.terpene-tag { font-size:11px; padding:2px 8px; background:rgba(76,175,80,.15); color:var(--green); border-radius:10px; }
+
+/* Tabs */
+.tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:16px; }
+.tab { padding:10px 18px; font-size:14px; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; background:none; transition:all .2s; }
+.tab.active { color:var(--green); border-bottom-color:var(--green); }
+
+/* Auth page */
+.auth-container { max-width:400px; margin:80px auto; padding:16px; }
+.auth-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:30px; }
+.auth-title { text-align:center; font-size:28px; color:var(--green); margin-bottom:6px; }
+.auth-subtitle { text-align:center; color:var(--text2); margin-bottom:24px; font-size:14px; }
+
+/* Public stats */
+.public-stats { text-align:center; margin-top:20px; color:var(--text2); font-size:13px; }
+
+/* Loading */
+.spinner { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .6s linear infinite; display:inline-block; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading-overlay { position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; border-radius:12px; z-index:10; }
+
+/* Toast */
+.toast { position:fixed; bottom:20px; right:20px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 18px; z-index:300; font-size:14px; animation:slideUp .3s; max-width:350px; }
+.toast.success { border-color:var(--green); }
+.toast.error { border-color:var(--red); }
+@keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+/* Effects list */
+.effects-list { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+.effect-tag { font-size:11px; padding:2px 8px; background:rgba(33,150,243,.15); color:var(--blue); border-radius:10px; }
+
+/* Review text */
+.review-text { font-size:13px; color:var(--text2); margin-top:6px; font-style:italic; }
+
+/* Star rating */
+.star-input { display:flex; gap:4px; }
+.star-input span { font-size:24px; cursor:pointer; color:var(--border); transition:color .15s; }
+.star-input span.filled { color:var(--orange); }
+
+/* Responsive */
+@media (max-width:600px) {
+  .form-row, .form-row-3 { grid-template-columns:1fr; }
+  .strain-card { flex-direction:column; }
+  .strain-thumb, .strain-thumb-placeholder { width:100%; height:160px; }
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  .header { flex-direction:column; align-items:stretch; }
+  .header-actions { justify-content:flex-end; }
+}
+
+.hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH VIEW ============ -->
+<div id="authView">
+  <div class="auth-container">
+    <div class="auth-card">
+      <h1 class="auth-title">Strain Tracker</h1>
+      <p class="auth-subtitle">Track your cannabis collection</p>
+
+      <div id="loginForm">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="loginUser" autocomplete="username" placeholder="Enter username">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="loginPass" autocomplete="current-password" placeholder="Enter password">
+        </div>
+        <button class="btn btn-green" style="width:100%;justify-content:center;margin-top:8px" onclick="doLogin()">Log In</button>
+        <p style="text-align:center;margin-top:14px;font-size:13px;color:var(--text2)">
+          Don't have an account? <a href="#" onclick="showRegister()">Register</a>
+        </p>
+      </div>
+
+      <div id="registerForm" class="hidden">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="regUser" autocomplete="username" placeholder="Choose a username">
+        </div>
+        <div class="form-group">
+          <label>Display Name</label>
+          <input type="text" id="regName" placeholder="Your display name">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="regPass" autocomplete="new-password" placeholder="Choose a password (6+ chars)">
+        </div>
+        <div class="form-group">
+          <label>Confirm Password</label>
+          <input type="password" id="regPass2" autocomplete="new-password" placeholder="Confirm password">
+        </div>
+        <button class="btn btn-green" style="width:100%;justify-content:center;margin-top:8px" onclick="doRegister()">Create Account</button>
+        <p style="text-align:center;margin-top:14px;font-size:13px;color:var(--text2)">
+          Already have an account? <a href="#" onclick="showLogin()">Log In</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="public-stats" id="publicStats"></div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="appView" class="hidden">
+  <div class="container">
+    <div class="header">
+      <h1>Strain Tracker</h1>
+      <div class="header-actions">
+        <span id="userGreeting" style="font-size:13px;color:var(--text2)"></span>
+        <button class="btn btn-outline btn-sm" onclick="showProfile()">Profile</button>
+        <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Stats Dashboard -->
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <!-- Action bar -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-green" onclick="openAddStrain()">+ Add Strain</button>
+      <button class="btn btn-outline" onclick="openImportReceipt()">Import Receipt</button>
+      <button class="btn btn-outline" onclick="exportData()">Export</button>
+    </div>
+
+    <!-- Search & Filter -->
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Search strains..." oninput="renderStrains()">
+    </div>
+    <div class="filter-chips">
+      <button class="chip active" data-filter="all" onclick="setFilter('all',this)">All</button>
+      <button class="chip" data-filter="indica" onclick="setFilter('indica',this)">Indica</button>
+      <button class="chip" data-filter="sativa" onclick="setFilter('sativa',this)">Sativa</button>
+      <button class="chip" data-filter="hybrid" onclick="setFilter('hybrid',this)">Hybrid</button>
+    </div>
+
+    <!-- Sort -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+      <span style="font-size:12px;color:var(--text2)">Sort:</span>
+      <select id="sortSelect" onchange="renderStrains()" style="width:auto;padding:5px 10px;font-size:12px">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="name">Name A-Z</option>
+        <option value="rating">Highest Rated</option>
+        <option value="thc">Highest THC</option>
+        <option value="price-low">Price: Low-High</option>
+        <option value="price-high">Price: High-Low</option>
+      </select>
+    </div>
+
+    <!-- Strain List -->
+    <div id="strainList"></div>
+  </div>
+</div>
+
+<!-- ============ MODALS ============ -->
+<div id="modalContainer"></div>
+<div id="lightbox" class="lightbox hidden" onclick="closeLightbox()">
+  <img id="lightboxImg" src="">
+</div>
+<div id="toastContainer"></div>
+
+<script>
+// ============ CONFIG ============
+const API_URL = 'api.php';  // Change if hosted elsewhere
+
+// ============ STATE ============
+let state = {
+  token: localStorage.getItem('st_token') || '',
+  user: JSON.parse(localStorage.getItem('st_user') || 'null'),
+  strains: [],
+  filter: 'all',
+};
+
+// ============ API ============
+async function api(action, opts = {}) {
+  const { method = 'GET', body, formData } = opts;
+  const headers = {};
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  if (body && !formData) headers['Content-Type'] = 'application/json';
+
+  const fetchOpts = { method, headers };
+  if (formData) fetchOpts.body = formData;
+  else if (body) fetchOpts.body = JSON.stringify(body);
+
+  const sep = action.includes('?') ? '&' : '?';
+  const url = `${API_URL}?action=${action}`;
+  const res = await fetch(url, fetchOpts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'API error');
+  return data;
+}
+
+// ============ AUTH ============
+function showLogin() {
+  document.getElementById('loginForm').classList.remove('hidden');
+  document.getElementById('registerForm').classList.add('hidden');
+}
+function showRegister() {
+  document.getElementById('loginForm').classList.add('hidden');
+  document.getElementById('registerForm').classList.remove('hidden');
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  if (!username || !password) return toast('Fill in all fields', 'error');
+  try {
+    const data = await api('login', { method: 'POST', body: { username, password } });
+    setAuth(data.token, data.user);
+    toast('Logged in');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function doRegister() {
+  const username = document.getElementById('regUser').value.trim();
+  const displayName = document.getElementById('regName').value.trim();
+  const password = document.getElementById('regPass').value;
+  const password2 = document.getElementById('regPass2').value;
+  if (!username || !password) return toast('Fill in all fields', 'error');
+  if (password !== password2) return toast('Passwords do not match', 'error');
+  if (password.length < 6) return toast('Password must be 6+ characters', 'error');
+  try {
+    const data = await api('register', { method: 'POST', body: { username, password, displayName } });
+    setAuth(data.token, data.user);
+    toast('Account created');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function setAuth(token, user) {
+  state.token = token;
+  state.user = user;
+  localStorage.setItem('st_token', token);
+  localStorage.setItem('st_user', JSON.stringify(user));
+  showApp();
+}
+
+function doLogout() {
+  api('logout', { method: 'POST' }).catch(() => {});
+  state.token = '';
+  state.user = null;
+  state.strains = [];
+  localStorage.removeItem('st_token');
+  localStorage.removeItem('st_user');
+  showAuth();
+}
+
+// ============ VIEWS ============
+function showAuth() {
+  document.getElementById('authView').classList.remove('hidden');
+  document.getElementById('appView').classList.add('hidden');
+  loadPublicStats();
+}
+
+async function showApp() {
+  document.getElementById('authView').classList.add('hidden');
+  document.getElementById('appView').classList.remove('hidden');
+  document.getElementById('userGreeting').textContent = 'Hi, ' + (state.user?.displayName || state.user?.username || '');
+  await loadStrains();
+}
+
+async function loadPublicStats() {
+  try {
+    const s = await api('stats');
+    document.getElementById('publicStats').innerHTML =
+      `${s.totalUsers} users tracking ${s.totalStrains} strains`;
+  } catch (e) {}
+}
+
+async function loadStrains() {
+  try {
+    state.strains = await api('strains');
+    renderStrains();
+    renderStats();
+  } catch (e) {
+    if (e.message.includes('401') || e.message.includes('token') || e.message.includes('Authentication')) {
+      doLogout();
+    } else {
+      toast(e.message, 'error');
+    }
+  }
+}
+
+// ============ STATS ============
+function renderStats() {
+  const s = state.strains;
+  const totalSpent = s.reduce((a, st) => a + (parseFloat(st.price) || 0), 0);
+  const rated = s.filter(st => st.rating > 0);
+  const avgRating = rated.length ? (rated.reduce((a, st) => a + st.rating, 0) / rated.length).toFixed(1) : '-';
+  const stores = [...new Set(s.map(st => st.store).filter(Boolean))];
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${s.length}</div><div class="stat-label">Total Strains</div></div>
+    <div class="stat-card"><div class="stat-value">$${totalSpent.toFixed(2)}</div><div class="stat-label">Total Spent</div></div>
+    <div class="stat-card"><div class="stat-value">${avgRating}</div><div class="stat-label">Avg Rating</div></div>
+    <div class="stat-card"><div class="stat-value">${stores.length}</div><div class="stat-label">Dispensaries</div></div>
+  `;
+}
+
+// ============ STRAIN LIST ============
+function renderStrains() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const sort = document.getElementById('sortSelect').value;
+
+  let filtered = state.strains.filter(s => {
+    if (state.filter !== 'all' && s.type !== state.filter) return false;
+    if (search) {
+      const hay = [s.name, s.store, s.type, s.review, ...(s.terpenes || [])].join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    switch (sort) {
+      case 'newest': return new Date(b.createdAt) - new Date(a.createdAt);
+      case 'oldest': return new Date(a.createdAt) - new Date(b.createdAt);
+      case 'name': return (a.name || '').localeCompare(b.name || '');
+      case 'rating': return (b.rating || 0) - (a.rating || 0);
+      case 'thc': return parseFloat(b.thc || 0) - parseFloat(a.thc || 0);
+      case 'price-low': return (a.price || 0) - (b.price || 0);
+      case 'price-high': return (b.price || 0) - (a.price || 0);
+      default: return 0;
+    }
+  });
+
+  if (filtered.length === 0) {
+    document.getElementById('strainList').innerHTML = `
+      <div class="card" style="text-align:center;padding:40px;color:var(--text2)">
+        ${state.strains.length === 0 ? 'No strains yet. Add your first one!' : 'No strains match your search.'}
+      </div>`;
+    return;
+  }
+
+  document.getElementById('strainList').innerHTML = filtered.map(s => {
+    const thumb = s.photos?.length ? `<img class="strain-thumb" src="${s.photos[0].url}" alt="">` :
+      `<div class="strain-thumb-placeholder">&#127807;</div>`;
+    const stars = s.rating ? '&#9733;'.repeat(s.rating) + '&#9734;'.repeat(5 - s.rating) : '';
+    const typeClass = s.type ? `type-${s.type}` : '';
+    const terpHtml = (s.terpenes || []).slice(0, 3).map(t => `<span class="terpene-tag">${esc(t)}</span>`).join('');
+
+    return `
+      <div class="card strain-card" onclick="openStrainDetail('${s.id}')">
+        ${thumb}
+        <div class="strain-info">
+          <div class="strain-name">${esc(s.name)}</div>
+          <div class="strain-meta">
+            ${s.type ? `<span class="strain-type ${typeClass}">${s.type}</span>` : ''}
+            ${s.thc ? `<span>THC: ${esc(s.thc)}%</span>` : ''}
+            ${s.cbd ? `<span>CBD: ${esc(s.cbd)}%</span>` : ''}
+            ${s.store ? `<span>&#128205; ${esc(s.store)}</span>` : ''}
+            ${s.price ? `<span>$${parseFloat(s.price).toFixed(2)}</span>` : ''}
+            ${s.weight ? `<span>${esc(s.weight)}</span>` : ''}
+          </div>
+          ${stars ? `<div class="strain-rating">${stars}</div>` : ''}
+          ${terpHtml ? `<div class="terpene-tags" style="margin-top:4px">${terpHtml}</div>` : ''}
+          ${s.review ? `<div class="review-text">"${esc(s.review.substring(0, 80))}${s.review.length > 80 ? '...' : ''}"</div>` : ''}
+        </div>
+        <div class="strain-actions">
+          <button class="strain-delete" onclick="event.stopPropagation();confirmDelete('${s.id}','${esc(s.name)}')" title="Delete">&#10005;</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function setFilter(filter, btn) {
+  state.filter = filter;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderStrains();
+}
+
+// ============ ADD STRAIN ============
+function openAddStrain(prefill = {}) {
+  const terpStr = (prefill.terpenes || []).join(', ');
+  showModal('Add Strain', `
+    <div class="form-group"><label>Strain Name *</label><input id="f_name" value="${esc(prefill.name || '')}"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Type</label>
+        <select id="f_type"><option value="hybrid" ${prefill.type==='hybrid'?'selected':''}>Hybrid</option><option value="indica" ${prefill.type==='indica'?'selected':''}>Indica</option><option value="sativa" ${prefill.type==='sativa'?'selected':''}>Sativa</option></select>
+      </div>
+      <div class="form-group"><label>Purchase Date</label><input type="date" id="f_date" value="${prefill.purchaseDate || new Date().toISOString().split('T')[0]}"></div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group"><label>THC %</label><input id="f_thc" value="${esc(prefill.thc || '')}" placeholder="e.g. 24.5"></div>
+      <div class="form-group"><label>CBD %</label><input id="f_cbd" value="${esc(prefill.cbd || '')}" placeholder="e.g. 0.1"></div>
+      <div class="form-group"><label>Weight</label><input id="f_weight" value="${esc(prefill.weight || '')}" placeholder="e.g. 3.5g"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Store/Dispensary</label><input id="f_store" value="${esc(prefill.store || '')}"></div>
+      <div class="form-group"><label>Price ($)</label><input type="number" step="0.01" id="f_price" value="${prefill.price || ''}"></div>
+    </div>
+    <div class="form-group"><label>Terpenes (comma separated)</label><input id="f_terpenes" value="${esc(terpStr)}" placeholder="e.g. Myrcene, Limonene, Caryophyllene"></div>
+    <div class="form-group"><label>Batch/Lot Info</label><input id="f_batch" value="${esc(prefill.batchInfo || '')}"></div>
+    <div class="form-group"><label>Rating</label><div class="star-input" id="f_rating">${[1,2,3,4,5].map(i=>`<span onclick="setStarRating(${i})" data-val="${i}">&#9734;</span>`).join('')}</div></div>
+    <div class="form-group"><label>Review / Notes</label><textarea id="f_review" placeholder="How was it?">${esc(prefill.review || '')}</textarea></div>
+
+    <div class="form-group">
+      <label>Upload Label Photo (AI reads it)</label>
+      <div class="photo-upload-area" onclick="document.getElementById('f_label_upload').click()">
+        Click to upload label photo<br><small>AI will extract THC, CBD, terpenes, etc.</small>
+        <input type="file" id="f_label_upload" accept="image/*" onchange="previewLabel(this)">
+      </div>
+      <div id="labelPreview" style="margin-top:8px"></div>
+      <div id="labelStatus" style="margin-top:6px;font-size:13px;color:var(--text2)"></div>
+    </div>
+  `, [
+    { text: 'Cancel', class: 'btn btn-outline', onclick: 'closeModal()' },
+    { text: 'Save Strain', class: 'btn btn-green', onclick: 'saveNewStrain()' },
+  ]);
+}
+
+let currentStarRating = 0;
+function setStarRating(val) {
+  currentStarRating = val;
+  document.querySelectorAll('#f_rating span').forEach(s => {
+    s.innerHTML = parseInt(s.dataset.val) <= val ? '&#9733;' : '&#9734;';
+    s.classList.toggle('filled', parseInt(s.dataset.val) <= val);
+  });
+}
+
+async function previewLabel(input) {
+  if (!input.files?.length) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('labelPreview').innerHTML = `<img src="${e.target.result}" style="max-width:200px;border-radius:8px">`;
+  };
+  reader.readAsDataURL(file);
+
+  // AI label reading
+  document.getElementById('labelStatus').innerHTML = '<span class="spinner"></span> AI is reading the label...';
+  try {
+    const fd = new FormData();
+    fd.append('photo', file);
+    const result = await api('read-label', { method: 'POST', formData: fd });
+    const p = result.parsed || {};
+
+    if (p.strain_name && !document.getElementById('f_name').value) document.getElementById('f_name').value = p.strain_name;
+    if (p.thc) document.getElementById('f_thc').value = p.thc.toString().replace('%', '');
+    if (p.cbd) document.getElementById('f_cbd').value = p.cbd.toString().replace('%', '');
+    if (p.weight) document.getElementById('f_weight').value = p.weight;
+    if (p.batch_info) document.getElementById('f_batch').value = p.batch_info;
+    if (p.type) document.getElementById('f_type').value = p.type.toLowerCase();
+    if (p.terpenes?.length) document.getElementById('f_terpenes').value = p.terpenes.join(', ');
+
+    document.getElementById('labelStatus').innerHTML = '<span style="color:var(--green)">&#10003; Label data extracted</span>';
+    toast('Label data extracted');
+  } catch (e) {
+    document.getElementById('labelStatus').innerHTML = `<span style="color:var(--red)">Failed: ${e.message}</span>`;
+  }
+}
+
+async function saveNewStrain() {
+  const name = document.getElementById('f_name').value.trim();
+  if (!name) return toast('Name is required', 'error');
+
+  const terpStr = document.getElementById('f_terpenes').value;
+  const terpenes = terpStr ? terpStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+  const body = {
+    name,
+    type: document.getElementById('f_type').value,
+    purchaseDate: document.getElementById('f_date').value,
+    thc: document.getElementById('f_thc').value.trim(),
+    cbd: document.getElementById('f_cbd').value.trim(),
+    weight: document.getElementById('f_weight').value.trim(),
+    store: document.getElementById('f_store').value.trim(),
+    price: parseFloat(document.getElementById('f_price').value) || 0,
+    terpenes,
+    batchInfo: document.getElementById('f_batch').value.trim(),
+    rating: currentStarRating,
+    review: document.getElementById('f_review').value.trim(),
+  };
+
+  try {
+    const strain = await api('strains', { method: 'POST', body });
+
+    // Upload label photo if present
+    const labelInput = document.getElementById('f_label_upload');
+    if (labelInput.files?.length) {
+      const fd = new FormData();
+      fd.append('strainId', strain.id);
+      fd.append('photoType', 'label');
+      fd.append('photo', labelInput.files[0]);
+      await api('upload-photo', { method: 'POST', formData: fd });
+    }
+
+    closeModal();
+    currentStarRating = 0;
+    await loadStrains();
+    toast('Strain added');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============ STRAIN DETAIL ============
+function openStrainDetail(id) {
+  const s = state.strains.find(st => st.id === id);
+  if (!s) return;
+
+  const stars = [1,2,3,4,5].map(i => i <= (s.rating||0) ? '&#9733;' : '&#9734;').join('');
+  const typeClass = s.type ? `type-${s.type}` : '';
+  const terpHtml = (s.terpenes||[]).map(t => `<span class="terpene-tag">${esc(t)}</span>`).join('');
+
+  const allPhotos = [...(s.photos||[]), ...(s.labelPhotos||[])];
+  const photoHtml = allPhotos.length ? `
+    <div class="photo-gallery">
+      ${allPhotos.map(p => `<img src="${p.url}" onclick="event.stopPropagation();openLightbox('${p.url}')">`).join('')}
+    </div>` : '';
+
+  showModal(s.name, `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      ${s.type ? `<span class="strain-type ${typeClass}">${s.type}</span>` : ''}
+      ${s.thc ? `<span style="font-size:13px">THC: ${esc(s.thc)}%</span>` : ''}
+      ${s.cbd ? `<span style="font-size:13px">CBD: ${esc(s.cbd)}%</span>` : ''}
+    </div>
+
+    ${s.rating ? `<div class="strain-rating" style="font-size:18px;margin-bottom:8px">${stars}</div>` : ''}
+
+    <div style="font-size:13px;color:var(--text2);margin-bottom:12px">
+      ${s.store ? `<div>Store: ${esc(s.store)}</div>` : ''}
+      ${s.price ? `<div>Price: $${parseFloat(s.price).toFixed(2)}</div>` : ''}
+      ${s.weight ? `<div>Weight: ${esc(s.weight)}</div>` : ''}
+      ${s.purchaseDate ? `<div>Purchased: ${s.purchaseDate}</div>` : ''}
+      ${s.batchInfo ? `<div>Batch: ${esc(s.batchInfo)}</div>` : ''}
+    </div>
+
+    ${terpHtml ? `<div style="margin-bottom:12px"><strong style="font-size:13px">Terpenes</strong><div class="terpene-tags" style="margin-top:4px">${terpHtml}</div></div>` : ''}
+    ${s.review ? `<div style="margin-bottom:12px"><strong style="font-size:13px">Review</strong><div class="review-text">${esc(s.review)}</div></div>` : ''}
+    ${photoHtml ? `<div style="margin-bottom:12px"><strong style="font-size:13px">Photos</strong>${photoHtml}</div>` : ''}
+
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+      <strong style="font-size:13px">Upload Photos</strong>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <label class="btn btn-outline btn-sm" style="cursor:pointer">
+          Bud Photo <input type="file" accept="image/*" style="display:none" onchange="uploadStrainPhoto('${s.id}','photo',this)">
+        </label>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer">
+          Label Photo <input type="file" accept="image/*" style="display:none" onchange="uploadStrainPhoto('${s.id}','label',this)">
+        </label>
+      </div>
+      <div id="uploadStatus" style="margin-top:8px;font-size:12px"></div>
+    </div>
+
+    <div style="margin-top:12px">
+      <button class="btn btn-outline btn-sm" onclick="fetchReviews('${esc(s.name)}')">Fetch Community Reviews</button>
+      <div id="communityReviews" style="margin-top:8px"></div>
+    </div>
+  `, [
+    { text: 'Edit', class: 'btn btn-outline', onclick: `closeModal();openEditStrain('${s.id}')` },
+    { text: 'Delete', class: 'btn btn-red', onclick: `closeModal();confirmDelete('${s.id}','${esc(s.name)}')` },
+    { text: 'Close', class: 'btn btn-green', onclick: 'closeModal()' },
+  ]);
+}
+
+async function uploadStrainPhoto(strainId, type, input) {
+  if (!input.files?.length) return;
+  const statusEl = document.getElementById('uploadStatus');
+  statusEl.innerHTML = '<span class="spinner"></span> Uploading...';
+  try {
+    const fd = new FormData();
+    fd.append('strainId', strainId);
+    fd.append('photoType', type);
+    fd.append('photo', input.files[0]);
+    await api('upload-photo', { method: 'POST', formData: fd });
+    statusEl.innerHTML = '<span style="color:var(--green)">&#10003; Uploaded</span>';
+    await loadStrains();
+    toast('Photo uploaded');
+  } catch (e) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Failed: ${e.message}</span>`;
+  }
+}
+
+async function fetchReviews(strainName) {
+  const el = document.getElementById('communityReviews');
+  el.innerHTML = '<span class="spinner"></span> Fetching reviews...';
+  try {
+    const result = await api('fetch-reviews', { method: 'POST', body: { strainName } });
+    const p = result.parsed || {};
+    el.innerHTML = `
+      ${p.summary ? `<p style="font-size:13px;margin-bottom:8px">${esc(p.summary)}</p>` : ''}
+      ${p.effects?.length ? `<div style="margin-bottom:6px"><strong style="font-size:12px">Effects:</strong> <span class="effects-list">${p.effects.map(e=>`<span class="effect-tag">${esc(e)}</span>`).join('')}</span></div>` : ''}
+      ${p.commonTerpenes?.length ? `<div style="margin-bottom:6px"><strong style="font-size:12px">Terpenes:</strong> <span class="terpene-tags">${p.commonTerpenes.map(t=>`<span class="terpene-tag">${esc(t)}</span>`).join('')}</span></div>` : ''}
+      ${p.thcRange ? `<div style="font-size:12px;color:var(--text2)">THC: ${esc(p.thcRange)} | CBD: ${esc(p.cbdRange||'N/A')}</div>` : ''}
+      ${p.sentiment ? `<div style="font-size:12px;color:var(--text2)">Sentiment: ${esc(p.sentiment)}</div>` : ''}
+    `;
+  } catch (e) {
+    el.innerHTML = `<span style="font-size:13px;color:var(--red)">${e.message}</span>`;
+  }
+}
+
+// ============ EDIT STRAIN ============
+function openEditStrain(id) {
+  const s = state.strains.find(st => st.id === id);
+  if (!s) return;
+
+  currentStarRating = s.rating || 0;
+  const terpStr = (s.terpenes || []).join(', ');
+
+  showModal('Edit Strain', `
+    <div class="form-group"><label>Strain Name *</label><input id="f_name" value="${esc(s.name)}"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Type</label>
+        <select id="f_type"><option value="hybrid" ${s.type==='hybrid'?'selected':''}>Hybrid</option><option value="indica" ${s.type==='indica'?'selected':''}>Indica</option><option value="sativa" ${s.type==='sativa'?'selected':''}>Sativa</option></select>
+      </div>
+      <div class="form-group"><label>Purchase Date</label><input type="date" id="f_date" value="${s.purchaseDate || ''}"></div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group"><label>THC %</label><input id="f_thc" value="${esc(s.thc || '')}"></div>
+      <div class="form-group"><label>CBD %</label><input id="f_cbd" value="${esc(s.cbd || '')}"></div>
+      <div class="form-group"><label>Weight</label><input id="f_weight" value="${esc(s.weight || '')}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Store/Dispensary</label><input id="f_store" value="${esc(s.store || '')}"></div>
+      <div class="form-group"><label>Price ($)</label><input type="number" step="0.01" id="f_price" value="${s.price || ''}"></div>
+    </div>
+    <div class="form-group"><label>Terpenes (comma separated)</label><input id="f_terpenes" value="${esc(terpStr)}"></div>
+    <div class="form-group"><label>Batch/Lot Info</label><input id="f_batch" value="${esc(s.batchInfo || '')}"></div>
+    <div class="form-group"><label>Rating</label><div class="star-input" id="f_rating">${[1,2,3,4,5].map(i=>`<span onclick="setStarRating(${i})" data-val="${i}" class="${i<=currentStarRating?'filled':''}">${i<=currentStarRating?'&#9733;':'&#9734;'}</span>`).join('')}</div></div>
+    <div class="form-group"><label>Review / Notes</label><textarea id="f_review">${esc(s.review || '')}</textarea></div>
+  `, [
+    { text: 'Cancel', class: 'btn btn-outline', onclick: 'closeModal()' },
+    { text: 'Save Changes', class: 'btn btn-green', onclick: `saveEditStrain('${s.id}')` },
+  ]);
+}
+
+async function saveEditStrain(id) {
+  const name = document.getElementById('f_name').value.trim();
+  if (!name) return toast('Name is required', 'error');
+
+  const terpStr = document.getElementById('f_terpenes').value;
+  const terpenes = terpStr ? terpStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+  const body = {
+    name,
+    type: document.getElementById('f_type').value,
+    purchaseDate: document.getElementById('f_date').value,
+    thc: document.getElementById('f_thc').value.trim(),
+    cbd: document.getElementById('f_cbd').value.trim(),
+    weight: document.getElementById('f_weight').value.trim(),
+    store: document.getElementById('f_store').value.trim(),
+    price: parseFloat(document.getElementById('f_price').value) || 0,
+    terpenes,
+    batchInfo: document.getElementById('f_batch').value.trim(),
+    rating: currentStarRating,
+    review: document.getElementById('f_review').value.trim(),
+  };
+
+  try {
+    await api(`strain&id=${id}`, { method: 'POST', body });
+    closeModal();
+    currentStarRating = 0;
+    await loadStrains();
+    toast('Strain updated');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============ DELETE ============
+function confirmDelete(id, name) {
+  showModal('Delete Strain', `
+    <p>Are you sure you want to delete <strong>${name}</strong>?</p>
+    <p style="color:var(--text2);font-size:13px;margin-top:8px">This will also delete all photos. This cannot be undone.</p>
+  `, [
+    { text: 'Cancel', class: 'btn btn-outline', onclick: 'closeModal()' },
+    { text: 'Delete', class: 'btn btn-red', onclick: `doDelete('${id}')` },
+  ]);
+}
+
+async function doDelete(id) {
+  try {
+    await api(`strain&id=${id}`, { method: 'DELETE' });
+    closeModal();
+    await loadStrains();
+    toast('Strain deleted');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============ IMPORT RECEIPT ============
+function openImportReceipt() {
+  showModal('Import Receipt', `
+    <div class="tabs">
+      <button class="tab active" onclick="switchReceiptTab('text',this)">Paste Text</button>
+      <button class="tab" onclick="switchReceiptTab('photo',this)">Photo</button>
+    </div>
+    <div id="receiptTextTab">
+      <div class="form-group">
+        <label>Paste receipt text</label>
+        <textarea id="receiptText" rows="8" placeholder="Paste your dispensary receipt text here..."></textarea>
+      </div>
+      <button class="btn btn-green" onclick="parseReceipt('text')">Parse Receipt</button>
+    </div>
+    <div id="receiptPhotoTab" class="hidden">
+      <div class="form-group">
+        <label>Upload receipt photo</label>
+        <div class="photo-upload-area" onclick="document.getElementById('receiptPhotoInput').click()">
+          Click to upload receipt photo
+          <input type="file" id="receiptPhotoInput" accept="image/*">
+        </div>
+      </div>
+      <button class="btn btn-green" onclick="parseReceipt('photo')">Parse Receipt</button>
+    </div>
+    <div id="receiptStatus" style="margin-top:12px"></div>
+    <div id="receiptResults" style="margin-top:12px"></div>
+  `, [
+    { text: 'Close', class: 'btn btn-outline', onclick: 'closeModal()' },
+  ]);
+}
+
+function switchReceiptTab(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('receiptTextTab').classList.toggle('hidden', tab !== 'text');
+  document.getElementById('receiptPhotoTab').classList.toggle('hidden', tab !== 'photo');
+}
+
+async function parseReceipt(mode) {
+  const statusEl = document.getElementById('receiptStatus');
+  const resultsEl = document.getElementById('receiptResults');
+  statusEl.innerHTML = '<span class="spinner"></span> AI is parsing the receipt...';
+  resultsEl.innerHTML = '';
+
+  try {
+    let result;
+    if (mode === 'photo') {
+      const fileInput = document.getElementById('receiptPhotoInput');
+      if (!fileInput.files?.length) return toast('Select a photo first', 'error');
+      const fd = new FormData();
+      fd.append('photo', fileInput.files[0]);
+      result = await api('parse-receipt', { method: 'POST', formData: fd });
+    } else {
+      const text = document.getElementById('receiptText').value.trim();
+      if (!text) return toast('Paste receipt text first', 'error');
+      result = await api('parse-receipt', { method: 'POST', body: { text } });
+    }
+
+    const p = result.parsed || {};
+    const items = p.items || [];
+    if (!items.length) {
+      statusEl.innerHTML = '<span style="color:var(--orange)">No items found in receipt</span>';
+      return;
+    }
+
+    statusEl.innerHTML = `<span style="color:var(--green)">Found ${items.length} item(s)${p.store ? ' from ' + esc(p.store) : ''}</span>`;
+    resultsEl.innerHTML = items.map((item, i) => `
+      <div class="card" style="padding:10px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${esc(item.name || 'Unknown')}</strong>
+            <div style="font-size:12px;color:var(--text2)">
+              ${item.price ? '$' + item.price : ''} ${item.weight || ''} ${item.thc ? 'THC:' + item.thc : ''}
+            </div>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="importReceiptItem(${i},'${esc(p.store||'')}')">Add</button>
+        </div>
+      </div>
+    `).join('');
+
+    // Store parsed items for import
+    window._receiptItems = items;
+    window._receiptStore = p.store || '';
+
+    if (items.length > 1) {
+      resultsEl.innerHTML += `<button class="btn btn-green" style="margin-top:8px;width:100%;justify-content:center" onclick="importAllReceiptItems()">Add All ${items.length} Items</button>`;
+    }
+  } catch (e) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+}
+
+function importReceiptItem(index, store) {
+  const item = window._receiptItems?.[index];
+  if (!item) return;
+  closeModal();
+  openAddStrain({
+    name: item.name || '',
+    store: store,
+    price: item.price || '',
+    weight: item.weight || '',
+    thc: (item.thc || '').toString().replace('%', ''),
+    cbd: (item.cbd || '').toString().replace('%', ''),
+    type: (item.type || 'hybrid').toLowerCase(),
+  });
+}
+
+async function importAllReceiptItems() {
+  const items = window._receiptItems || [];
+  const store = window._receiptStore || '';
+  const statusEl = document.getElementById('receiptStatus');
+  statusEl.innerHTML = '<span class="spinner"></span> Adding all items...';
+
+  let added = 0;
+  for (const item of items) {
+    try {
+      await api('strains', { method: 'POST', body: {
+        name: item.name || 'Unknown',
+        store,
+        price: parseFloat(item.price) || 0,
+        weight: item.weight || '',
+        thc: (item.thc || '').toString().replace('%', ''),
+        cbd: (item.cbd || '').toString().replace('%', ''),
+        type: (item.type || 'hybrid').toLowerCase(),
+        purchaseDate: new Date().toISOString().split('T')[0],
+        terpenes: [],
+        review: '',
+        rating: 0,
+      }});
+      added++;
+    } catch (e) {}
+  }
+
+  closeModal();
+  await loadStrains();
+  toast(`Added ${added} strain(s)`);
+}
+
+// ============ PROFILE ============
+function showProfile() {
+  showModal('Profile', `
+    <div class="tabs">
+      <button class="tab active" onclick="switchProfileTab('info',this)">Info</button>
+      <button class="tab" onclick="switchProfileTab('settings',this)">Settings</button>
+      <button class="tab" onclick="switchProfileTab('backups',this)">Backups</button>
+    </div>
+    <div id="profileInfoTab">
+      <div class="form-group"><label>Display Name</label><input id="p_name" value="${esc(state.user?.displayName || '')}"></div>
+      <button class="btn btn-green" onclick="saveProfile()">Save</button>
+      <hr style="border-color:var(--border);margin:16px 0">
+      <h3 style="font-size:14px;margin-bottom:10px">Change Password</h3>
+      <div class="form-group"><label>Current Password</label><input type="password" id="p_curpass"></div>
+      <div class="form-group"><label>New Password</label><input type="password" id="p_newpass"></div>
+      <button class="btn btn-outline" onclick="changePassword()">Change Password</button>
+    </div>
+    <div id="profileSettingsTab" class="hidden">
+      <div class="form-group">
+        <label>Preferred AI Model</label>
+        <select id="p_model">
+          <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash (Free)</option>
+          <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek V3 (Free)</option>
+          <option value="meta-llama/llama-4-maverick:free">Llama 4 Maverick (Free)</option>
+          <option value="qwen/qwen3-235b-a22b:free">Qwen3 235B (Free)</option>
+        </select>
+      </div>
+      <button class="btn btn-green" onclick="saveSettings()">Save Settings</button>
+    </div>
+    <div id="profileBackupsTab" class="hidden">
+      <div id="backupList"><span class="spinner"></span> Loading backups...</div>
+    </div>
+  `, [
+    { text: 'Close', class: 'btn btn-outline', onclick: 'closeModal()' },
+  ]);
+
+  // Set current model
+  const model = state.user?.settings?.preferredModel || 'google/gemini-2.0-flash-001';
+  const sel = document.getElementById('p_model');
+  if (sel) sel.value = model;
+}
+
+function switchProfileTab(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('profileInfoTab').classList.toggle('hidden', tab !== 'info');
+  document.getElementById('profileSettingsTab').classList.toggle('hidden', tab !== 'settings');
+  document.getElementById('profileBackupsTab').classList.toggle('hidden', tab !== 'backups');
+  if (tab === 'backups') loadBackups();
+}
+
+async function saveProfile() {
+  try {
+    await api('profile', { method: 'POST', body: { displayName: document.getElementById('p_name').value.trim() } });
+    state.user.displayName = document.getElementById('p_name').value.trim();
+    localStorage.setItem('st_user', JSON.stringify(state.user));
+    document.getElementById('userGreeting').textContent = 'Hi, ' + state.user.displayName;
+    toast('Profile updated');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function changePassword() {
+  const cur = document.getElementById('p_curpass').value;
+  const newP = document.getElementById('p_newpass').value;
+  if (!cur || !newP) return toast('Fill in both fields', 'error');
+  if (newP.length < 6) return toast('Password must be 6+ characters', 'error');
+  try {
+    await api('profile', { method: 'POST', body: { currentPassword: cur, newPassword: newP } });
+    toast('Password changed');
+    document.getElementById('p_curpass').value = '';
+    document.getElementById('p_newpass').value = '';
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function saveSettings() {
+  try {
+    const model = document.getElementById('p_model').value;
+    await api('profile', { method: 'POST', body: { settings: { preferredModel: model } } });
+    state.user.settings = state.user.settings || {};
+    state.user.settings.preferredModel = model;
+    localStorage.setItem('st_user', JSON.stringify(state.user));
+    toast('Settings saved');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadBackups() {
+  const el = document.getElementById('backupList');
+  try {
+    const backups = await api('backups');
+    if (!backups.length) {
+      el.innerHTML = '<p style="color:var(--text2);font-size:13px">No backups yet. Backups are created automatically when you add, edit, or delete strains.</p>';
+      return;
+    }
+    el.innerHTML = backups.map(b => `
+      <div class="card" style="padding:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px">${b.filename}</div>
+          <div style="font-size:11px;color:var(--text2)">${new Date(b.date).toLocaleString()} - ${(b.size / 1024).toFixed(1)}KB</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="restoreBackup('${esc(b.filename)}')">Restore</button>
+      </div>
+    `).join('');
+  } catch (e) { el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+async function restoreBackup(filename) {
+  if (!confirm('Restore this backup? Current data will be backed up first.')) return;
+  try {
+    await api('restore', { method: 'POST', body: { filename } });
+    await loadStrains();
+    closeModal();
+    toast('Backup restored');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function exportData() {
+  try {
+    const data = await api('export');
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `strains_export_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Export downloaded');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============ MODAL SYSTEM ============
+function showModal(title, bodyHtml, buttons = []) {
+  const btns = buttons.map(b => `<button class="${b.class}" onclick="${b.onclick}">${b.text}</button>`).join('');
+  document.getElementById('modalContainer').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>${title}</h2>
+          <button class="btn-icon btn-outline" onclick="closeModal()" style="font-size:16px">&times;</button>
+        </div>
+        <div class="modal-body">${bodyHtml}</div>
+        ${btns ? `<div class="modal-footer">${btns}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function closeModal() {
+  document.getElementById('modalContainer').innerHTML = '';
+}
+
+// ============ LIGHTBOX ============
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.remove('hidden');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.add('hidden');
+}
+
+// ============ TOAST ============
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ============ UTIL ============
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ============ INIT ============
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeLightbox(); }
+});
+
+if (state.token && state.user) {
+  showApp();
+} else {
+  showAuth();
+}
+</script>
+</body>
+</html>

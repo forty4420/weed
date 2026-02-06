@@ -1,0 +1,38 @@
+# Strain Tracker - Apache Configuration
+
+# Deny access to data directory
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Block access to data files
+  RewriteRule ^data/ - [F,L]
+
+  # Block access to .json files
+  RewriteRule \.json$ - [F,L]
+</IfModule>
+
+# Prevent directory listing
+Options -Indexes
+
+# Set upload limits
+<IfModule mod_php.c>
+  php_value upload_max_filesize 10M
+  php_value post_max_size 12M
+  php_value max_execution_time 120
+</IfModule>
+
+# CORS headers
+<IfModule mod_headers.c>
+  Header set Access-Control-Allow-Origin "*"
+  Header set Access-Control-Allow-Methods "GET, POST, DELETE, OPTIONS"
+  Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
+
+# Cache static assets
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/gif "access plus 1 month"
+  ExpiresByType image/webp "access plus 1 month"
+</IfModule>
