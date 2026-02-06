@@ -6,7 +6,7 @@
  */
 
 // ============ CONFIGURATION ============
-define('ADMIN_PASSWORD', 'changeme123');       // Change this!
+define('ADMIN_PASSWORD', 'Fuctit4420!');       // Admin password
 define('OPENROUTER_API_KEY', '');              // Your OpenRouter API key
 define('DATA_DIR', __DIR__ . '/data');
 define('UPLOAD_DIR', __DIR__ . '/uploads');
