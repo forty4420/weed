@@ -261,6 +261,7 @@ table tr:hover td { background:rgba(255,255,255,.02); }
             <thead>
               <tr>
                 <th>User</th>
+                <th>Email</th>
                 <th>Strains</th>
                 <th>Spent</th>
                 <th>Stores</th>
@@ -672,6 +673,7 @@ function renderUsers() {
           </div>
         </div>
       </td>
+      <td style="font-size:12px">${esc(u.email||'-')}</td>
       <td>${u.strainCount}</td>
       <td>$${u.totalSpent.toFixed(2)}</td>
       <td>${u.storeCount}</td>
@@ -762,7 +764,7 @@ async function viewUser(userId) {
             ${data.isAdmin?'<span class="badge-admin">ADMIN</span>':''}
             ${blocked?'<span class="badge-blocked">BLOCKED</span>':''}
           </h2>
-          <p>@${esc(data.username)} &middot; Joined ${data.createdAt?new Date(data.createdAt).toLocaleDateString():'N/A'}</p>
+          <p>@${esc(data.username)}${data.email?' &middot; '+esc(data.email):''} &middot; Joined ${data.createdAt?new Date(data.createdAt).toLocaleDateString():'N/A'}</p>
         </div>
         <div class="detail-actions">
           ${!data.isAdmin ? (blocked

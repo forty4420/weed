@@ -230,6 +230,10 @@ textarea { resize:vertical; min-height:80px; }
           <input type="text" id="regUser" autocomplete="username" placeholder="Choose a username">
         </div>
         <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="regEmail" autocomplete="email" placeholder="Your email address">
+        </div>
+        <div class="form-group">
           <label>Display Name</label>
           <input type="text" id="regName" placeholder="Your display name">
         </div>
@@ -422,14 +426,15 @@ async function doLogin() {
 
 async function doRegister() {
   const username = document.getElementById('regUser').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
   const displayName = document.getElementById('regName').value.trim();
   const password = document.getElementById('regPass').value;
   const password2 = document.getElementById('regPass2').value;
-  if (!username || !password) return toast('Fill in all fields', 'error');
+  if (!username || !email || !password) return toast('Fill in all fields', 'error');
   if (password !== password2) return toast('Passwords do not match', 'error');
   if (password.length < 6) return toast('Password must be 6+ characters', 'error');
   try {
-    const data = await api('register', { method: 'POST', body: { username, password, displayName } });
+    const data = await api('register', { method: 'POST', body: { username, email, password, displayName } });
     setAuth(data.token, data.user);
     toast('Account created');
   } catch (e) { toast(e.message, 'error'); }
@@ -472,6 +477,7 @@ async function showApp() {
     console.log('[StrainTracker] Profile refresh:', { id: profile.id, isAdmin: profile.isAdmin, displayName: profile.displayName });
     state.user.isAdmin = !!profile.isAdmin;
     state.user.displayName = profile.displayName || state.user.displayName;
+    state.user.email = profile.email || state.user.email || '';
     state.user.id = profile.id || state.user.id;
     localStorage.setItem('st_user', JSON.stringify(state.user));
   } catch (e) {
@@ -1063,9 +1069,11 @@ function showProfile() {
         <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">User ID</span><span style="font-size:13px;font-weight:500">${esc(state.user?.id || '')}</span></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">Username</span><span style="font-size:13px;font-weight:500">${esc(state.user?.username || '')}</span></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">Display Name</span><span style="font-size:13px;font-weight:500">${esc(state.user?.displayName || '')}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">Email</span><span style="font-size:13px;font-weight:500">${esc(state.user?.email || '-')}</span></div>
         <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--text2)">Role</span><span style="font-size:13px;font-weight:500;color:${isAdm ? 'var(--red)' : 'var(--text2)'}">${isAdm ? 'Admin' : 'User'}</span></div>
       </div>
       <div class="form-group"><label>Display Name</label><input id="p_name" value="${esc(state.user?.displayName || '')}"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="p_email" value="${esc(state.user?.email || '')}"></div>
       <button class="btn btn-green" onclick="saveProfile()">Save</button>
       <hr style="border-color:var(--border);margin:16px 0">
       <h3 style="font-size:14px;margin-bottom:10px">Change Password</h3>
@@ -1109,7 +1117,7 @@ function switchProfileTab(tab, btn) {
 
 async function saveProfile() {
   try {
-    await api('profile', { method: 'POST', body: { displayName: document.getElementById('p_name').value.trim() } });
+    await api('profile', { method: 'POST', body: { displayName: document.getElementById('p_name').value.trim(), email: document.getElementById('p_email').value.trim() } });
     state.user.displayName = document.getElementById('p_name').value.trim();
     localStorage.setItem('st_user', JSON.stringify(state.user));
     document.getElementById('userGreeting').textContent = 'Hi, ' + state.user.displayName;
@@ -1406,8 +1414,8 @@ function renderAdminUsers() {
   document.getElementById('adminUserList').innerHTML = filtered.map(u => `
     <tr>
       <td>
-        <div style="font-weight:500">${esc(u.displayName || u.username)}${u.isAdmin ? ' <span style="color:var(--red);font-size:11px">[ADMIN]</span>' : ''}</div>
-        <div style="font-size:11px;color:var(--text2)">@${esc(u.username)}</div>
+        <div style="font-weight:500">${esc(u.displayName || u.username)}${u.isAdmin ? ' <span style="color:var(--red);font-size:11px">[ADMIN]</span>' : ''}${u.blocked ? ' <span style="color:var(--orange);font-size:11px">[BLOCKED]</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--text2)">@${esc(u.username)}${u.email ? ' &middot; ' + esc(u.email) : ''}</div>
       </td>
       <td>${u.strainCount}</td>
       <td>$${u.totalSpent.toFixed(2)}</td>

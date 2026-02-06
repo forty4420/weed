@@ -295,6 +295,7 @@ switch ($action) {
         $input = getInput();
         $username = trim($input['username'] ?? '');
         $password = $input['password'] ?? '';
+        $email = trim($input['email'] ?? '');
         $displayName = trim($input['displayName'] ?? $username);
 
         if (strlen($username) < 3 || strlen($username) > 30) {
@@ -306,6 +307,9 @@ switch ($action) {
         if (strlen($password) < 6) {
             errorResponse('Password must be at least 6 characters');
         }
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            errorResponse('A valid email address is required');
+        }
 
         $userId = strtolower($username);
         if (loadUser($userId)) {
@@ -316,6 +320,7 @@ switch ($action) {
             'id' => $userId,
             'username' => $username,
             'displayName' => $displayName,
+            'email' => $email,
             'passwordHash' => hashPassword($password),
             'createdAt' => date('c'),
             'strains' => [],
@@ -390,6 +395,7 @@ switch ($action) {
                 'id' => $user['id'],
                 'username' => $user['username'],
                 'displayName' => $user['displayName'],
+                'email' => $user['email'] ?? '',
                 'createdAt' => $user['createdAt'],
                 'strainCount' => count($user['strains'] ?? []),
                 'settings' => $user['settings'] ?? [],
@@ -399,6 +405,13 @@ switch ($action) {
             $input = getInput();
             if (isset($input['displayName'])) {
                 $user['displayName'] = trim($input['displayName']);
+            }
+            if (isset($input['email'])) {
+                $email = trim($input['email']);
+                if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    errorResponse('Invalid email address');
+                }
+                $user['email'] = $email;
             }
             if (isset($input['settings'])) {
                 $user['settings'] = array_merge($user['settings'] ?? [], $input['settings']);
@@ -881,6 +894,7 @@ Return ONLY valid JSON.";
                 'id' => $u['id'],
                 'username' => $u['username'],
                 'displayName' => $u['displayName'] ?? $u['username'],
+                'email' => $u['email'] ?? '',
                 'isAdmin' => isAdmin($u['id']),
                 'blocked' => !empty($u['blocked']),
                 'blockedAt' => $u['blockedAt'] ?? null,
@@ -960,6 +974,7 @@ Return ONLY valid JSON.";
             'id' => $targetUser['id'],
             'username' => $targetUser['username'],
             'displayName' => $targetUser['displayName'] ?? $targetUser['username'],
+            'email' => $targetUser['email'] ?? '',
             'isAdmin' => isAdmin($targetUser['id']),
             'createdAt' => $targetUser['createdAt'] ?? '',
             'settings' => $targetUser['settings'] ?? [],
@@ -1159,7 +1174,7 @@ Return ONLY valid JSON.";
         $out = fopen('php://output', 'w');
 
         fputcsv($out, [
-            'Username', 'Display Name', 'Joined', 'Strain Name', 'Type',
+            'Username', 'Display Name', 'Email', 'Joined', 'Strain Name', 'Type',
             'Store', 'Price', 'Weight', 'THC %', 'CBD %', 'Rating',
             'Purchase Date', 'Terpenes', 'Effects', 'Batch Info', 'Review'
         ]);
@@ -1167,16 +1182,18 @@ Return ONLY valid JSON.";
         foreach ($allUsers as $u) {
             $username = $u['username'] ?? '';
             $displayName = $u['displayName'] ?? $username;
+            $email = $u['email'] ?? '';
             $joined = $u['createdAt'] ?? '';
 
             $strains = $u['strains'] ?? [];
             if (empty($strains)) {
-                fputcsv($out, [$username, $displayName, $joined, '', '', '', '', '', '', '', '', '', '', '', '', '']);
+                fputcsv($out, [$username, $displayName, $email, $joined, '', '', '', '', '', '', '', '', '', '', '', '', '']);
             } else {
                 foreach ($strains as $s) {
                     fputcsv($out, [
                         $username,
                         $displayName,
+                        $email,
                         $joined,
                         $s['name'] ?? '',
                         $s['type'] ?? '',
