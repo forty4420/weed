@@ -1,0 +1,11 @@
+{
+    "id": "forty4420",
+    "username": "forty4420",
+    "displayName": "forty4420",
+    "passwordHash": "$2y$12$NlACBpxIOeJ65G6tUh1jv.4gaQngnMfFgjfKHTayWZ.4mwcuEtsg2",
+    "createdAt": "2026-02-06T12:36:29+00:00",
+    "strains": [],
+    "settings": {
+        "preferredModel": "google/gemini-2.0-flash-001"
+    }
+}
