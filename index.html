@@ -466,16 +466,16 @@ async function showApp() {
   document.getElementById('adminView').classList.add('hidden');
   document.getElementById('appView').classList.remove('hidden');
   document.getElementById('userGreeting').textContent = 'Hi, ' + (state.user?.displayName || state.user?.username || '');
-  // Refresh admin status from server (handles pre-existing sessions)
+  // Refresh user info from server (admin status, display name)
   try {
     const profile = await api('profile');
-    if (profile.isAdmin !== undefined) {
-      state.user.isAdmin = profile.isAdmin;
-      state.user.displayName = profile.displayName;
-      localStorage.setItem('st_user', JSON.stringify(state.user));
-    }
+    console.log('[StrainTracker] Profile refresh:', { id: profile.id, isAdmin: profile.isAdmin, displayName: profile.displayName });
+    state.user.isAdmin = !!profile.isAdmin;
+    state.user.displayName = profile.displayName || state.user.displayName;
+    state.user.id = profile.id || state.user.id;
+    localStorage.setItem('st_user', JSON.stringify(state.user));
   } catch (e) {
-    // Token may be expired - force re-login
+    console.error('[StrainTracker] Profile refresh failed:', e.message);
     if (e.message.includes('expired') || e.message.includes('Invalid token') || e.message.includes('Authentication')) {
       doLogout();
       return;
@@ -1051,6 +1051,7 @@ async function importAllReceiptItems() {
 
 // ============ PROFILE ============
 function showProfile() {
+  const isAdm = state.user?.isAdmin;
   showModal('Profile', `
     <div class="tabs">
       <button class="tab active" onclick="switchProfileTab('info',this)">Info</button>
@@ -1058,6 +1059,12 @@ function showProfile() {
       <button class="tab" onclick="switchProfileTab('backups',this)">Backups</button>
     </div>
     <div id="profileInfoTab">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">User ID</span><span style="font-size:13px;font-weight:500">${esc(state.user?.id || '')}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">Username</span><span style="font-size:13px;font-weight:500">${esc(state.user?.username || '')}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--text2)">Display Name</span><span style="font-size:13px;font-weight:500">${esc(state.user?.displayName || '')}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--text2)">Role</span><span style="font-size:13px;font-weight:500;color:${isAdm ? 'var(--red)' : 'var(--text2)'}">${isAdm ? 'Admin' : 'User'}</span></div>
+      </div>
       <div class="form-group"><label>Display Name</label><input id="p_name" value="${esc(state.user?.displayName || '')}"></div>
       <button class="btn btn-green" onclick="saveProfile()">Save</button>
       <hr style="border-color:var(--border);margin:16px 0">
