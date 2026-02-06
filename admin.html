@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - Strain Tracker</title>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #121212; --surface: #1e1e1e; --card: #252525; --border: #333;
+  --text: #e0e0e0; --text2: #999; --green: #4caf50; --green-dark: #388e3c;
+  --red: #f44336; --orange: #ff9800; --blue: #2196f3; --purple: #9c27b0;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+a { color:var(--green); text-decoration:none; }
+button { cursor:pointer; border:none; font-family:inherit; font-size:14px; }
+input,select { font-family:inherit; font-size:14px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px; width:100%; outline:none; }
+input:focus { border-color:var(--green); }
+
+.btn { padding:8px 16px; border-radius:8px; font-weight:500; transition:all .2s; display:inline-flex; align-items:center; gap:6px; }
+.btn-green { background:var(--green); color:#fff; }
+.btn-green:hover { background:var(--green-dark); }
+.btn-red { background:var(--red); color:#fff; }
+.btn-red:hover { background:#c62828; }
+.btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+.btn-outline:hover { border-color:var(--green); color:var(--green); }
+.btn-sm { padding:5px 10px; font-size:12px; }
+
+.auth-container { max-width:400px; margin:80px auto; padding:16px; }
+.auth-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:30px; }
+.auth-title { text-align:center; font-size:28px; color:var(--red); margin-bottom:6px; }
+.auth-subtitle { text-align:center; color:var(--text2); margin-bottom:24px; font-size:14px; }
+.form-group { margin-bottom:14px; }
+.form-group label { display:block; font-size:13px; color:var(--text2); margin-bottom:5px; }
+
+.admin-container { max-width:1200px; margin:0 auto; padding:16px; }
+.admin-header { display:flex; align-items:center; justify-content:space-between; padding:16px 0; border-bottom:1px solid var(--border); margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+.admin-header h1 { font-size:22px; color:var(--red); }
+.header-actions { display:flex; gap:8px; align-items:center; }
+
+.admin-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:20px; overflow-x:auto; }
+.admin-tab { padding:12px 20px; font-size:14px; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; background:none; transition:all .2s; white-space:nowrap; }
+.admin-tab.active { color:var(--red); border-bottom-color:var(--red); }
+
+.admin-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:24px; }
+.admin-stat-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; }
+.admin-stat-value { font-size:28px; font-weight:700; color:var(--green); }
+.admin-stat-label { font-size:12px; color:var(--text2); margin-top:4px; }
+
+.chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(350px,1fr)); gap:16px; margin-bottom:24px; }
+.chart-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+.chart-card h3 { font-size:14px; margin-bottom:12px; color:var(--text); }
+.chart-card canvas { max-height:300px; }
+
+.user-table { width:100%; border-collapse:collapse; }
+.user-table th { text-align:left; padding:10px 12px; font-size:12px; color:var(--text2); text-transform:uppercase; border-bottom:1px solid var(--border); }
+.user-table td { padding:10px 12px; font-size:13px; border-bottom:1px solid var(--border); }
+.user-table tr:hover td { background:var(--card); }
+
+.user-detail-header { display:flex; align-items:center; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+.user-avatar { width:64px; height:64px; border-radius:50%; background:var(--card); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; color:var(--green); }
+.user-detail-info h2 { font-size:20px; }
+.user-detail-info p { font-size:13px; color:var(--text2); }
+.back-btn { background:none; border:none; color:var(--text2); font-size:13px; cursor:pointer; padding:4px 0; margin-bottom:12px; display:inline-flex; align-items:center; gap:4px; }
+.back-btn:hover { color:var(--green); }
+
+.strain-mini-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
+.strain-mini-name { font-size:13px; font-weight:500; }
+.strain-mini-meta { font-size:11px; color:var(--text2); display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; }
+.strain-type { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:500; text-transform:uppercase; }
+.type-indica { background:#7b1fa2; color:#fff; }
+.type-sativa { background:#f57c00; color:#fff; }
+.type-hybrid { background:#388e3c; color:#fff; }
+.strain-rating { color:var(--orange); font-size:12px; }
+.terpene-tag { font-size:11px; padding:2px 8px; background:rgba(76,175,80,.15); color:var(--green); border-radius:10px; }
+
+.spinner { width:20px; height:20px; border:2px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .6s linear infinite; display:inline-block; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.toast { position:fixed; bottom:20px; right:20px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 18px; z-index:300; font-size:14px; animation:slideUp .3s; max-width:350px; }
+.toast.success { border-color:var(--green); }
+.toast.error { border-color:var(--red); }
+@keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+.modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.7); z-index:100; display:flex; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; width:100%; max-width:500px; margin:40px 0; }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+.modal-header h2 { font-size:18px; }
+.modal-body { padding:20px; }
+.modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+
+.hidden { display:none !important; }
+@media (max-width:600px) {
+  .chart-grid { grid-template-columns:1fr; }
+  .admin-stats-grid { grid-template-columns:repeat(2,1fr); }
+  .user-table { font-size:11px; }
+  .user-table th, .user-table td { padding:6px 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginView">
+  <div class="auth-container">
+    <div class="auth-card">
+      <h1 class="auth-title">Admin Panel</h1>
+      <p class="auth-subtitle">Enter admin password to continue</p>
+      <div class="form-group">
+        <label>Admin Password</label>
+        <input type="password" id="adminPass" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doAdminLogin()">
+      </div>
+      <button class="btn btn-red" style="width:100%;justify-content:center;margin-top:8px" onclick="doAdminLogin()">Enter Admin Panel</button>
+      <p style="text-align:center;margin-top:14px;font-size:13px"><a href="index.html">Back to app</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashView" class="hidden">
+  <div class="admin-container">
+    <div class="admin-header">
+      <h1>Admin Dashboard</h1>
+      <div class="header-actions">
+        <button class="btn btn-green btn-sm" onclick="downloadCSV()">Download CSV</button>
+        <a href="index.html" class="btn btn-outline btn-sm">Back to App</a>
+        <button class="btn btn-outline btn-sm" onclick="doAdminLogout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="switchTab('overview',this)">Overview</button>
+      <button class="admin-tab" onclick="switchTab('users',this)">Users</button>
+      <button class="admin-tab hidden" id="detailTab" onclick="switchTab('detail',this)">User Detail</button>
+    </div>
+
+    <div id="overviewTab"></div>
+    <div id="usersTab" class="hidden"></div>
+    <div id="detailTab_content" class="hidden"></div>
+  </div>
+</div>
+
+<div id="modalContainer"></div>
+<div id="toastContainer"></div>
+
+<script>
+const API_URL = 'api.php';
+let token = localStorage.getItem('admin_token') || '';
+let allUsers = [];
+let charts = [];
+
+// ============ API ============
+async function api(action, opts = {}) {
+  const { method = 'GET', body } = opts;
+  const headers = {};
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  if (body) headers['Content-Type'] = 'application/json';
+  const fetchOpts = { method, headers };
+  if (body) fetchOpts.body = JSON.stringify(body);
+  const res = await fetch(`${API_URL}?action=${action}`, fetchOpts);
+  if (action === 'admin-export-csv' && res.ok) return res;
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'API error');
+  return data;
+}
+
+// ============ AUTH ============
+async function doAdminLogin() {
+  const pass = document.getElementById('adminPass').value;
+  if (!pass) return toast('Enter a password', 'error');
+  try {
+    const data = await api('admin-login', { method: 'POST', body: { password: pass } });
+    token = data.token;
+    localStorage.setItem('admin_token', token);
+    showDashboard();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function doAdminLogout() {
+  token = '';
+  localStorage.removeItem('admin_token');
+  document.getElementById('dashView').classList.add('hidden');
+  document.getElementById('loginView').classList.remove('hidden');
+}
+
+// ============ DASHBOARD ============
+async function showDashboard() {
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('dashView').classList.remove('hidden');
+  await Promise.all([loadOverview(), loadUsers()]);
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('overviewTab').classList.toggle('hidden', tab !== 'overview');
+  document.getElementById('usersTab').classList.toggle('hidden', tab !== 'users');
+  document.getElementById('detailTab_content').classList.toggle('hidden', tab !== 'detail');
+  if (tab === 'detail') document.getElementById('detailTab').classList.remove('hidden');
+}
+
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function toast(msg, type = 'success') {
+  const el = document.createElement('div'); el.className = `toast ${type}`; el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el); setTimeout(() => el.remove(), 3500);
+}
+function showModal(title, body, buttons) {
+  const btns = (buttons||[]).map(b => `<button class="${b.cls}" onclick="${b.onclick}">${b.text}</button>`).join('');
+  document.getElementById('modalContainer').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><div class="modal-header"><h2>${title}</h2><button class="btn-outline" onclick="closeModal()" style="font-size:16px;background:none;border:none;color:var(--text);cursor:pointer">&times;</button></div><div class="modal-body">${body}</div>${btns?`<div class="modal-footer">${btns}</div>`:''}</div></div>`;
+}
+function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
+
+function createChart(el, cfg) {
+  if (typeof Chart === 'undefined') return null;
+  return new Chart(el, cfg);
+}
+function destroyCharts() { charts.forEach(c => c && c.destroy()); charts = []; }
+
+const CC = {
+  green:'#4caf50', red:'#f44336', orange:'#ff9800', blue:'#2196f3', purple:'#9c27b0',
+  teal:'#009688', pink:'#e91e63', amber:'#ffc107', indigo:'#3f51b5', lime:'#cddc39',
+  greenA:'rgba(76,175,80,.3)', blueA:'rgba(33,150,243,.3)'
+};
+const darkOpts = { plugins:{legend:{labels:{color:'#e0e0e0'}}}, scales:{x:{ticks:{color:'#999'},grid:{color:'#333'}},y:{ticks:{color:'#999'},grid:{color:'#333'}}} };
+
+// ============ OVERVIEW ============
+async function loadOverview() {
+  try {
+    const s = await api('admin-stats');
+    const el = document.getElementById('overviewTab');
+    el.innerHTML = `
+      <div class="admin-stats-grid">
+        <div class="admin-stat-card"><div class="admin-stat-value">${s.totalUsers}</div><div class="admin-stat-label">Total Users</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${s.totalStrains}</div><div class="admin-stat-label">Total Strains</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">$${s.totalSpent.toFixed(2)}</div><div class="admin-stat-label">Total Spent</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${s.avgStrainsPerUser}</div><div class="admin-stat-label">Avg Strains/User</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${s.storeCount}</div><div class="admin-stat-label">Dispensaries</div></div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card"><h3>Monthly Spending</h3><canvas id="cMonthly"></canvas></div>
+        <div class="chart-card"><h3>Strain Types</h3><canvas id="cTypes"></canvas></div>
+        <div class="chart-card"><h3>Top Dispensaries</h3><canvas id="cStores"></canvas></div>
+        <div class="chart-card"><h3>User Growth</h3><canvas id="cGrowth"></canvas></div>
+      </div>`;
+    destroyCharts();
+    // Monthly
+    const mL = Object.keys(s.monthlySpending), mV = Object.values(s.monthlySpending);
+    if (mL.length) charts.push(createChart(document.getElementById('cMonthly'), { type:'line', data:{labels:mL,datasets:[{label:'$',data:mV,borderColor:CC.green,backgroundColor:CC.greenA,fill:true,tension:.3}]}, options:{responsive:true,...darkOpts,scales:{...darkOpts.scales,y:{ticks:{color:'#999',callback:v=>'$'+v},grid:{color:'#333'}}}} }));
+    // Types
+    const t = s.strainsByType;
+    charts.push(createChart(document.getElementById('cTypes'), { type:'doughnut', data:{labels:['Indica','Sativa','Hybrid'],datasets:[{data:[t.indica,t.sativa,t.hybrid],backgroundColor:[CC.purple,CC.orange,CC.green],borderWidth:0}]}, options:{responsive:true,plugins:{legend:{labels:{color:'#e0e0e0'}}}} }));
+    // Stores
+    const sN = Object.keys(s.topStores), sV = Object.values(s.topStores);
+    if (sN.length) charts.push(createChart(document.getElementById('cStores'), { type:'bar', data:{labels:sN,datasets:[{label:'Purchases',data:sV,backgroundColor:CC.blue,borderRadius:4}]}, options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},...darkOpts} }));
+    // Growth
+    const gL = Object.keys(s.userGrowth); let cum = 0;
+    const gD = Object.values(s.userGrowth).map(v => { cum+=v; return cum; });
+    if (gL.length) charts.push(createChart(document.getElementById('cGrowth'), { type:'line', data:{labels:gL,datasets:[{label:'Users',data:gD,borderColor:CC.blue,backgroundColor:CC.blueA,fill:true,tension:.3}]}, options:{responsive:true,...darkOpts} }));
+  } catch (e) {
+    if (e.message.includes('401') || e.message.includes('token') || e.message.includes('Admin')) { doAdminLogout(); toast('Session expired', 'error'); }
+    else toast(e.message, 'error');
+  }
+}
+
+// ============ USERS ============
+async function loadUsers() {
+  try {
+    allUsers = await api('admin-users');
+    renderUsers();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderUsers(search) {
+  const q = (search || '').toLowerCase();
+  const filtered = allUsers.filter(u => !q || u.username.toLowerCase().includes(q) || (u.displayName||'').toLowerCase().includes(q));
+  document.getElementById('usersTab').innerHTML = `
+    <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center">
+      <input type="text" placeholder="Search users..." oninput="renderUsers(this.value)" style="max-width:300px" value="${esc(search||'')}">
+      <span style="font-size:12px;color:var(--text2)">${filtered.length} user(s)</span>
+    </div>
+    <div style="overflow-x:auto"><table class="user-table"><thead><tr>
+      <th>User</th><th>Strains</th><th>Spent</th><th>Dispensaries</th><th>Visits</th><th>Joined</th><th>Actions</th>
+    </tr></thead><tbody>
+    ${filtered.map(u => `<tr>
+      <td><div style="font-weight:500">${esc(u.displayName||u.username)}${u.isAdmin?' <span style="color:var(--red);font-size:11px">[ADMIN]</span>':''}</div><div style="font-size:11px;color:var(--text2)">@${esc(u.username)} (ID: ${esc(u.id)})</div></td>
+      <td>${u.strainCount}</td>
+      <td>$${u.totalSpent.toFixed(2)}</td>
+      <td>${u.storeCount}</td>
+      <td>${u.visitCount}</td>
+      <td style="font-size:11px">${u.createdAt?new Date(u.createdAt).toLocaleDateString():'-'}</td>
+      <td><div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="viewUser('${esc(u.id)}')">View</button>
+        ${!u.isAdmin?`<button class="btn btn-red btn-sm" onclick="confirmDelete('${esc(u.id)}','${esc(u.username)}')">Delete</button>`:''}
+      </div></td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function confirmDelete(id, name) {
+  showModal('Delete User', `<p>Delete <strong>${name}</strong>?</p><p style="color:var(--red);font-size:13px;margin-top:8px">This permanently deletes their account, strains, photos, and backups.</p>`, [
+    { text:'Cancel', cls:'btn btn-outline', onclick:'closeModal()' },
+    { text:'Delete', cls:'btn btn-red', onclick:`doDelete('${id}')` }
+  ]);
+}
+async function doDelete(id) {
+  try { await api('admin-delete-user',{method:'POST',body:{userId:id}}); closeModal(); await loadUsers(); toast('User deleted'); }
+  catch(e) { toast(e.message,'error'); }
+}
+
+// ============ USER DETAIL ============
+let udCharts = [];
+async function viewUser(id) {
+  switchTab('detail', document.getElementById('detailTab'));
+  const el = document.getElementById('detailTab_content');
+  el.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span> Loading...</div>';
+  try {
+    const d = await api(`admin-user-detail&id=${id}`);
+    const a = d.analytics;
+    const init = (d.displayName||d.username||'?')[0].toUpperCase();
+    udCharts.forEach(c => c && c.destroy()); udCharts = [];
+
+    el.innerHTML = `
+      <button class="back-btn" onclick="switchTab('users',document.querySelectorAll('.admin-tab')[1])">&#8592; Back to Users</button>
+      <div class="user-detail-header">
+        <div class="user-avatar">${init}</div>
+        <div class="user-detail-info">
+          <h2>${esc(d.displayName||d.username)}${d.isAdmin?' <span style="color:var(--red);font-size:14px">[ADMIN]</span>':''}</h2>
+          <p>@${esc(d.username)} &middot; ID: ${esc(d.id)} &middot; Joined ${d.createdAt?new Date(d.createdAt).toLocaleDateString():'N/A'}</p>
+        </div>
+      </div>
+      <div class="admin-stats-grid">
+        <div class="admin-stat-card"><div class="admin-stat-value">${a.totalStrains}</div><div class="admin-stat-label">Strains</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">$${a.totalSpent.toFixed(2)}</div><div class="admin-stat-label">Total Spent</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">$${a.avgPrice.toFixed(2)}</div><div class="admin-stat-label">Avg Price</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${a.avgRating||'-'}</div><div class="admin-stat-label">Avg Rating</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${a.storeCount}</div><div class="admin-stat-label">Dispensaries</div></div>
+        <div class="admin-stat-card"><div class="admin-stat-value">${a.uniqueVisitDays}</div><div class="admin-stat-label">Visit Days</div></div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card"><h3>Monthly Spending</h3><canvas id="udM"></canvas></div>
+        <div class="chart-card"><h3>Strain Types</h3><canvas id="udT"></canvas></div>
+        <div class="chart-card"><h3>Ratings</h3><canvas id="udR"></canvas></div>
+        <div class="chart-card"><h3>Dispensary Visits</h3><canvas id="udS"></canvas></div>
+        <div class="chart-card"><h3>Dispensary Spending</h3><canvas id="udSS"></canvas></div>
+        <div class="chart-card"><h3>Day of Week</h3><canvas id="udW"></canvas></div>
+        <div class="chart-card"><h3>Top Terpenes</h3><canvas id="udTP"></canvas></div>
+        <div class="chart-card"><h3>Top Effects</h3><canvas id="udEF"></canvas></div>
+      </div>
+      <h3 style="margin-bottom:12px;font-size:16px">All Strains (${d.strains.length})</h3>
+      <div id="udStrains"></div>`;
+
+    // Charts
+    const mL=Object.keys(a.monthlySpending), mV=Object.values(a.monthlySpending);
+    if(mL.length) udCharts.push(createChart(document.getElementById('udM'),{type:'bar',data:{labels:mL,datasets:[{label:'$',data:mV,backgroundColor:CC.green,borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#999'},grid:{color:'#333'}},y:{ticks:{color:'#999',callback:v=>'$'+v},grid:{color:'#333'}}}}}));
+    const ty=a.strainsByType;
+    udCharts.push(createChart(document.getElementById('udT'),{type:'pie',data:{labels:['Indica','Sativa','Hybrid'],datasets:[{data:[ty.indica,ty.sativa,ty.hybrid],backgroundColor:['#7b1fa2','#f57c00','#388e3c'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{labels:{color:'#e0e0e0'}}}}}));
+    const rV=Object.values(a.ratingDistribution);
+    udCharts.push(createChart(document.getElementById('udR'),{type:'bar',data:{labels:['1 Star','2 Stars','3 Stars','4 Stars','5 Stars'],datasets:[{data:rV,backgroundColor:[CC.red,CC.orange,CC.amber,CC.lime,CC.green],borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#999'},grid:{color:'#333'}},y:{ticks:{color:'#999',stepSize:1},grid:{color:'#333'}}}}}));
+    const svL=Object.keys(a.storeVisits),svV=Object.values(a.storeVisits);
+    if(svL.length){const sc=svL.map((_,i)=>[CC.blue,CC.green,CC.orange,CC.purple,CC.red,CC.teal,CC.pink,CC.amber,CC.indigo,CC.lime][i%10]);udCharts.push(createChart(document.getElementById('udS'),{type:'doughnut',data:{labels:svL,datasets:[{data:svV,backgroundColor:sc,borderWidth:0}]},options:{responsive:true,plugins:{legend:{labels:{color:'#e0e0e0'},position:'bottom'}}}}));}
+    const ssL=Object.keys(a.storeSpending),ssV=Object.values(a.storeSpending);
+    if(ssL.length) udCharts.push(createChart(document.getElementById('udSS'),{type:'bar',data:{labels:ssL,datasets:[{label:'$',data:ssV,backgroundColor:CC.blue,borderRadius:4}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#999',callback:v=>'$'+v},grid:{color:'#333'}},y:{ticks:{color:'#999'},grid:{color:'#333'}}}}}));
+    udCharts.push(createChart(document.getElementById('udW'),{type:'radar',data:{labels:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],datasets:[{label:'Purchases',data:a.weekdayDistribution,borderColor:CC.green,backgroundColor:CC.greenA,pointBackgroundColor:CC.green}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{r:{ticks:{color:'#999',stepSize:1,backdropColor:'transparent'},grid:{color:'#444'},angleLines:{color:'#444'},pointLabels:{color:'#e0e0e0'}}}}}));
+    const tpL=Object.keys(a.topTerpenes),tpV=Object.values(a.topTerpenes);
+    if(tpL.length){const tc=tpL.map((_,i)=>[CC.green,CC.teal,CC.lime,CC.blue,CC.purple,CC.orange,CC.pink,CC.amber,CC.indigo,CC.red][i%10]);udCharts.push(createChart(document.getElementById('udTP'),{type:'polarArea',data:{labels:tpL,datasets:[{data:tpV,backgroundColor:tc.map(c=>c+'99'),borderWidth:0}]},options:{responsive:true,plugins:{legend:{labels:{color:'#e0e0e0'},position:'bottom'}},scales:{r:{ticks:{color:'#999',backdropColor:'transparent'},grid:{color:'#444'}}}}}));}
+    const efL=Object.keys(a.topEffects),efV=Object.values(a.topEffects);
+    if(efL.length) udCharts.push(createChart(document.getElementById('udEF'),{type:'bar',data:{labels:efL,datasets:[{label:'Count',data:efV,backgroundColor:CC.purple,borderRadius:4}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#999',stepSize:1},grid:{color:'#333'}},y:{ticks:{color:'#999'},grid:{color:'#333'}}}}}));
+
+    // Strains list
+    const sl = document.getElementById('udStrains');
+    if(d.strains.length) {
+      sl.innerHTML = d.strains.map(s => {
+        const tc = s.type?`type-${s.type}`:'';
+        const stars = s.rating?'&#9733;'.repeat(s.rating)+'&#9734;'.repeat(5-s.rating):'';
+        return `<div class="strain-mini-card"><div>
+          <div class="strain-mini-name">${esc(s.name)} ${s.type?`<span class="strain-type ${tc}" style="font-size:10px;margin-left:6px">${s.type}</span>`:''}</div>
+          <div class="strain-mini-meta">
+            ${s.store?`<span>${esc(s.store)}</span>`:''}
+            ${s.price?`<span>$${parseFloat(s.price).toFixed(2)}</span>`:''}
+            ${s.thc?`<span>THC:${esc(s.thc)}%</span>`:''}
+            ${s.weight?`<span>${esc(s.weight)}</span>`:''}
+            ${s.purchaseDate?`<span>${s.purchaseDate}</span>`:''}
+          </div></div>
+          <div style="text-align:right">${stars?`<div class="strain-rating">${stars}</div>`:''}</div>
+        </div>`;
+      }).join('');
+    } else { sl.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:16px">No strains.</div>'; }
+  } catch(e) { el.innerHTML = `<div style="color:var(--red);padding:20px">${e.message}</div>`; }
+}
+
+// ============ CSV ============
+function downloadCSV() {
+  fetch(`${API_URL}?action=admin-export-csv`, { headers:{'Authorization':'Bearer '+token} })
+    .then(r => { if(!r.ok) throw new Error('Export failed'); return r.blob(); })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url;
+      a.download = `all_users_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click(); URL.revokeObjectURL(url); toast('CSV downloaded');
+    }).catch(e => toast(e.message,'error'));
+}
+
+// ============ INIT ============
+if (token) {
+  // Verify token is still valid
+  api('admin-stats').then(() => showDashboard()).catch(() => {
+    token = ''; localStorage.removeItem('admin_token');
+  });
+} else {
+  document.getElementById('loginView').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

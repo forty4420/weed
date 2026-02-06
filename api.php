@@ -112,6 +112,7 @@ function authenticateRequest() {
 }
 
 function isAdmin($userId) {
+    if ($userId === '__admin__') return true;
     if (in_array($userId, ADMIN_USERS)) return true;
     $user = loadUser($userId);
     return $user && !empty($user['isAdmin']);
@@ -279,6 +280,21 @@ $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
 switch ($action) {
+
+    // ---- ADMIN AUTH (standalone, password only) ----
+    case 'admin-login':
+        if ($method !== 'POST') errorResponse('POST required', 405);
+        $input = getInput();
+        $password = $input['password'] ?? '';
+        if ($password !== ADMIN_PASSWORD) {
+            errorResponse('Invalid admin password', 401);
+        }
+        $token = generateToken();
+        $tokens = loadTokens();
+        $tokens[$token] = ['userId' => '__admin__', 'expires' => time() + TOKEN_EXPIRY, 'isAdmin' => true];
+        saveTokens($tokens);
+        jsonResponse(['token' => $token]);
+        break;
 
     // ---- AUTH ----
     case 'register':
