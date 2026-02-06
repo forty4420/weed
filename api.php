@@ -175,9 +175,11 @@ function getSettingsFile() {
 
 function loadSettings() {
     $file = getSettingsFile();
-    if (!file_exists($file)) return ['apiKey' => ''];
+    if (!file_exists($file)) return ['apiKey' => '', 'model' => 'arcee-ai/trinity-large-preview:free'];
     $data = json_decode(file_get_contents($file), true);
-    return is_array($data) ? $data : ['apiKey' => ''];
+    if (!is_array($data)) return ['apiKey' => '', 'model' => 'arcee-ai/trinity-large-preview:free'];
+    if (!isset($data['model'])) $data['model'] = 'arcee-ai/trinity-large-preview:free';
+    return $data;
 }
 
 function saveSettings($settings) {
@@ -187,6 +189,11 @@ function saveSettings($settings) {
 function getOpenRouterKey() {
     $settings = loadSettings();
     return $settings['apiKey'] ?? '';
+}
+
+function getAIModel() {
+    $settings = loadSettings();
+    return $settings['model'] ?? 'arcee-ai/trinity-large-preview:free';
 }
 
 function createBackup($userId) {
@@ -345,9 +352,7 @@ switch ($action) {
             'passwordHash' => hashPassword($password),
             'createdAt' => date('c'),
             'strains' => [],
-            'settings' => [
-                'preferredModel' => 'google/gemini-2.0-flash-001',
-            ],
+            'settings' => [],
         ];
         saveUser($userId, $user);
 
@@ -641,8 +646,7 @@ switch ($action) {
 }
 Only include fields where data is actually visible. Return ONLY valid JSON, no other text.";
 
-        $user = loadUser($userId);
-        $model = $user['settings']['preferredModel'] ?? 'google/gemini-2.0-flash-001';
+        $model = getAIModel();
         $result = callOpenRouterVision($imageBase64, $mimeType, $prompt, $model);
 
         if (is_array($result) && isset($result['error'])) {
@@ -687,8 +691,7 @@ Also include a \"store\" field with the dispensary name if visible.
 Return format: {\"store\": \"name\", \"items\": [...]}
 Return ONLY valid JSON.";
 
-                $user = loadUser($userId);
-                $model = $user['settings']['preferredModel'] ?? 'google/gemini-2.0-flash-001';
+                $model = getAIModel();
                 $result = callOpenRouterVision($imageBase64, $mimeType, $prompt, $model);
             } else {
                 errorResponse('Invalid image');
@@ -701,8 +704,7 @@ Return ONLY valid JSON.
 Receipt:
 " . $receiptText;
 
-            $user = loadUser($userId);
-            $model = $user['settings']['preferredModel'] ?? 'google/gemini-2.0-flash-001';
+            $model = getAIModel();
             $messages = [['role' => 'user', 'content' => $prompt]];
             $result = callOpenRouter($messages, $model);
         }
@@ -762,8 +764,7 @@ Format as JSON:
 }
 Return ONLY valid JSON.";
 
-        $user = loadUser($userId);
-        $model = $user['settings']['preferredModel'] ?? 'google/gemini-2.0-flash-001';
+        $model = getAIModel();
         $messages = [['role' => 'user', 'content' => $prompt]];
         $result = callOpenRouter($messages, $model);
 
@@ -1241,7 +1242,7 @@ Return ONLY valid JSON.";
         $userId = authenticateRequest();
         requireAdmin($userId);
         $settings = loadSettings();
-        jsonResponse(['apiKey' => $settings['apiKey'] ?? '']);
+        jsonResponse(['apiKey' => $settings['apiKey'] ?? '', 'model' => $settings['model'] ?? 'arcee-ai/trinity-large-preview:free']);
         break;
 
     case 'admin-save-settings':
@@ -1251,6 +1252,7 @@ Return ONLY valid JSON.";
         $input = getInput();
         $settings = loadSettings();
         $settings['apiKey'] = $input['apiKey'] ?? '';
+        $settings['model'] = $input['model'] ?? 'arcee-ai/trinity-large-preview:free';
         saveSettings($settings);
         jsonResponse(['success' => true]);
         break;

@@ -368,6 +368,11 @@ textarea { resize:vertical; min-height:80px; }
           <input type="password" id="adminApiKey" placeholder="sk-or-v1-...">
           <p style="font-size:12px;color:var(--text2);margin-top:6px">Get your key at <a href="https://openrouter.ai" target="_blank" style="color:var(--green)">openrouter.ai</a></p>
         </div>
+        <div class="form-group">
+          <label>AI Model</label>
+          <input type="text" id="adminModel" placeholder="arcee-ai/trinity-large-preview:free">
+          <p style="font-size:12px;color:var(--text2);margin-top:6px">Default: arcee-ai/trinity-large-preview:free (currently free)</p>
+        </div>
         <button class="btn btn-green" onclick="saveAdminSettings()">Save Settings</button>
       </div>
     </div>
@@ -1145,7 +1150,7 @@ function showHelp() {
         <h4 style="font-size:14px;margin-bottom:10px">💡 Tips</h4>
         <ul style="font-size:13px;color:var(--text2);line-height:1.7;margin-left:20px">
           <li><strong>Mix Methods:</strong> Use receipts for purchases and label scans for gifts/samples</li>
-          <li><strong>AI Models:</strong> Choose your preferred AI model in Profile > Settings</li>
+          <li><strong>AI Model:</strong> Powered by admin-configured AI for best performance</li>
           <li><strong>Search & Filter:</strong> Use the search bar and type filters to find strains quickly</li>
           <li><strong>Stats Dashboard:</strong> Track your spending, ratings, and favorite dispensaries</li>
           <li><strong>Export Data:</strong> Download your entire collection as JSON anytime</li>
@@ -1183,16 +1188,7 @@ function showProfile() {
       <button class="btn btn-outline" onclick="changePassword()">Change Password</button>
     </div>
     <div id="profileSettingsTab" class="hidden">
-      <div class="form-group">
-        <label>Preferred AI Model</label>
-        <select id="p_model">
-          <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash (Free)</option>
-          <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek V3 (Free)</option>
-          <option value="meta-llama/llama-4-maverick:free">Llama 4 Maverick (Free)</option>
-          <option value="qwen/qwen3-235b-a22b:free">Qwen3 235B (Free)</option>
-        </select>
-      </div>
-      <button class="btn btn-green" onclick="saveSettings()">Save Settings</button>
+      <p style="font-size:13px;color:var(--text2)">AI model settings are managed by the administrator.</p>
     </div>
     <div id="profileBackupsTab" class="hidden">
       <div id="backupList"><span class="spinner"></span> Loading backups...</div>
@@ -1236,17 +1232,6 @@ async function changePassword() {
     toast('Password changed');
     document.getElementById('p_curpass').value = '';
     document.getElementById('p_newpass').value = '';
-  } catch (e) { toast(e.message, 'error'); }
-}
-
-async function saveSettings() {
-  try {
-    const model = document.getElementById('p_model').value;
-    await api('profile', { method: 'POST', body: { settings: { preferredModel: model } } });
-    state.user.settings = state.user.settings || {};
-    state.user.settings.preferredModel = model;
-    localStorage.setItem('st_user', JSON.stringify(state.user));
-    toast('Settings saved');
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -1558,13 +1543,15 @@ async function loadAdminSettings() {
   try {
     const settings = await api('admin-get-settings');
     document.getElementById('adminApiKey').value = settings.apiKey || '';
+    document.getElementById('adminModel').value = settings.model || 'arcee-ai/trinity-large-preview:free';
   } catch (e) { toast(e.message, 'error'); }
 }
 
 async function saveAdminSettings() {
   try {
     const apiKey = document.getElementById('adminApiKey').value.trim();
-    await api('admin-save-settings', { method: 'POST', body: { apiKey } });
+    const model = document.getElementById('adminModel').value.trim();
+    await api('admin-save-settings', { method: 'POST', body: { apiKey, model } });
     toast('Settings saved');
   } catch (e) { toast(e.message, 'error'); }
 }
