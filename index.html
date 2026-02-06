@@ -311,6 +311,7 @@ textarea { resize:vertical; min-height:80px; }
     <div class="admin-header">
       <h1>Admin Dashboard</h1>
       <div class="header-actions">
+        <button class="btn btn-green btn-sm" onclick="downloadAdminCSV()">Download CSV</button>
         <button class="btn btn-outline btn-sm" onclick="hideAdminPanel()">Back to App</button>
         <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
       </div>
@@ -781,13 +782,22 @@ async function uploadStrainPhoto(strainId, type, input) {
   }
 }
 
-async function fetchReviews(strainName) {
+async function fetchReviews(strainName, forceRefresh = false) {
   const el = document.getElementById('communityReviews');
-  el.innerHTML = '<span class="spinner"></span> Fetching reviews...';
+  el.innerHTML = `<span class="spinner"></span> ${forceRefresh ? 'Refreshing from web...' : 'Checking database...'}`;
   try {
-    const result = await api('fetch-reviews', { method: 'POST', body: { strainName } });
+    const result = await api('fetch-reviews', { method: 'POST', body: { strainName, forceRefresh } });
     const p = result.parsed || {};
+    const fromCache = result.source === 'cache';
+    const cacheInfo = fromCache
+      ? `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:8px">
+           <span style="color:var(--green)">From database</span> (cached ${new Date(result.cachedAt).toLocaleDateString()})
+           <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px" onclick="fetchReviews('${esc(strainName)}',true)">Refresh from web</button>
+         </div>`
+      : `<div style="font-size:11px;color:var(--text2);margin-bottom:8px"><span style="color:var(--blue)">Fetched from web</span> (saved to database)</div>`;
+
     el.innerHTML = `
+      ${cacheInfo}
       ${p.summary ? `<p style="font-size:13px;margin-bottom:8px">${esc(p.summary)}</p>` : ''}
       ${p.effects?.length ? `<div style="margin-bottom:6px"><strong style="font-size:12px">Effects:</strong> <span class="effects-list">${p.effects.map(e=>`<span class="effect-tag">${esc(e)}</span>`).join('')}</span></div>` : ''}
       ${p.commonTerpenes?.length ? `<div style="margin-bottom:6px"><strong style="font-size:12px">Terpenes:</strong> <span class="terpene-tags">${p.commonTerpenes.map(t=>`<span class="terpene-tag">${esc(t)}</span>`).join('')}</span></div>` : ''}
@@ -1213,6 +1223,29 @@ function showAdminPanel() {
 function hideAdminPanel() {
   document.getElementById('adminView').classList.add('hidden');
   document.getElementById('appView').classList.remove('hidden');
+}
+
+function downloadAdminCSV() {
+  const url = `${API_URL}?action=admin-export-csv`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `all_users_export_${new Date().toISOString().split('T')[0]}.csv`;
+  // Need auth header - use fetch instead
+  fetch(url, { headers: { 'Authorization': 'Bearer ' + state.token } })
+    .then(r => {
+      if (!r.ok) throw new Error('Export failed');
+      return r.blob();
+    })
+    .then(blob => {
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `all_users_export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(blobUrl);
+      toast('CSV downloaded');
+    })
+    .catch(e => toast(e.message, 'error'));
 }
 
 function switchAdminTab(tab, btn) {

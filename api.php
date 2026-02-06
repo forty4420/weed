@@ -14,6 +14,7 @@ define('UPLOAD_DIR', __DIR__ . '/uploads');
 define('MAX_UPLOAD_SIZE', 10 * 1024 * 1024);  // 10MB
 define('MAX_BACKUPS', 5);
 define('TOKEN_EXPIRY', 86400 * 30);           // 30 days
+define('STRAIN_CACHE_TTL', 86400 * 30);       // 30 days cache for strain info
 define('ALLOWED_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
 
 // ============ INIT ============
@@ -28,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Create directories
-foreach ([DATA_DIR, UPLOAD_DIR, DATA_DIR . '/users', DATA_DIR . '/backups'] as $dir) {
+foreach ([DATA_DIR, UPLOAD_DIR, DATA_DIR . '/users', DATA_DIR . '/backups', DATA_DIR . '/strain_cache'] as $dir) {
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
@@ -130,6 +131,34 @@ function getAllUsers() {
         if ($u) $users[] = $u;
     }
     return $users;
+}
+
+function getStrainCacheKey($strainName) {
+    return preg_replace('/[^a-z0-9]/', '_', strtolower(trim($strainName)));
+}
+
+function getStrainCache($strainName) {
+    $key = getStrainCacheKey($strainName);
+    $file = DATA_DIR . '/strain_cache/' . $key . '.json';
+    if (!file_exists($file)) return null;
+    $data = json_decode(file_get_contents($file), true);
+    if (!$data) return null;
+    $age = time() - ($data['cachedAt'] ?? 0);
+    if ($age > STRAIN_CACHE_TTL) return null; // expired
+    return $data;
+}
+
+function saveStrainCache($strainName, $parsed, $raw) {
+    $key = getStrainCacheKey($strainName);
+    $file = DATA_DIR . '/strain_cache/' . $key . '.json';
+    $data = [
+        'strainName' => $strainName,
+        'cachedAt' => time(),
+        'expiresAt' => time() + STRAIN_CACHE_TTL,
+        'parsed' => $parsed,
+        'raw' => $raw,
+    ];
+    file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
 }
 
 function createBackup($userId) {
@@ -651,8 +680,22 @@ Receipt:
         $userId = authenticateRequest();
         $input = getInput();
         $strainName = trim($input['strainName'] ?? '');
+        $forceRefresh = !empty($input['forceRefresh']);
         if (empty($strainName)) errorResponse('Strain name required');
 
+        // Check cache first
+        $cached = $forceRefresh ? null : getStrainCache($strainName);
+        if ($cached) {
+            jsonResponse([
+                'raw' => $cached['raw'],
+                'parsed' => $cached['parsed'],
+                'source' => 'cache',
+                'cachedAt' => date('c', $cached['cachedAt']),
+                'expiresAt' => date('c', $cached['expiresAt']),
+            ]);
+        }
+
+        // Not in cache or expired - fetch from AI
         $prompt = "Provide a brief summary of the cannabis strain \"$strainName\". Include:
 1. Common effects reported by users
 2. Typical THC/CBD ranges
@@ -687,9 +730,15 @@ Return ONLY valid JSON.";
         }
         $parsed = json_decode($jsonStr, true);
 
+        // Save to cache
+        if ($parsed) {
+            saveStrainCache($strainName, $parsed, $result);
+        }
+
         jsonResponse([
             'raw' => $result,
             'parsed' => $parsed ?: [],
+            'source' => 'api',
         ]);
         break;
 
@@ -961,6 +1010,56 @@ Return ONLY valid JSON.";
         ]);
         break;
 
+    case 'admin-export-csv':
+        $userId = authenticateRequest();
+        requireAdmin($userId);
+        $allUsers = getAllUsers();
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="all_users_export_' . date('Y-m-d') . '.csv"');
+        $out = fopen('php://output', 'w');
+
+        fputcsv($out, [
+            'Username', 'Display Name', 'Joined', 'Strain Name', 'Type',
+            'Store', 'Price', 'Weight', 'THC %', 'CBD %', 'Rating',
+            'Purchase Date', 'Terpenes', 'Effects', 'Batch Info', 'Review'
+        ]);
+
+        foreach ($allUsers as $u) {
+            $username = $u['username'] ?? '';
+            $displayName = $u['displayName'] ?? $username;
+            $joined = $u['createdAt'] ?? '';
+
+            $strains = $u['strains'] ?? [];
+            if (empty($strains)) {
+                fputcsv($out, [$username, $displayName, $joined, '', '', '', '', '', '', '', '', '', '', '', '', '']);
+            } else {
+                foreach ($strains as $s) {
+                    fputcsv($out, [
+                        $username,
+                        $displayName,
+                        $joined,
+                        $s['name'] ?? '',
+                        $s['type'] ?? '',
+                        $s['store'] ?? '',
+                        $s['price'] ?? 0,
+                        $s['weight'] ?? '',
+                        $s['thc'] ?? '',
+                        $s['cbd'] ?? '',
+                        $s['rating'] ?? 0,
+                        $s['purchaseDate'] ?? '',
+                        implode(', ', $s['terpenes'] ?? []),
+                        implode(', ', $s['effects'] ?? []),
+                        $s['batchInfo'] ?? '',
+                        $s['review'] ?? '',
+                    ]);
+                }
+            }
+        }
+
+        fclose($out);
+        exit;
+
     default:
         jsonResponse([
             'app' => 'Cannabis Strain Tracker',
@@ -985,6 +1084,7 @@ Return ONLY valid JSON.";
                 'GET /api.php?action=admin-user-detail&id=X',
                 'POST /api.php?action=admin-delete-user',
                 'GET /api.php?action=admin-stats',
+                'GET /api.php?action=admin-export-csv',
             ]
         ]);
 }
