@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Strain Tracker</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
 :root {
   --bg: #121212;
@@ -1281,8 +1281,16 @@ function switchAdminTab(tab, btn) {
 }
 
 function destroyAdminCharts() {
-  adminChartInstances.forEach(c => c.destroy());
+  adminChartInstances.forEach(c => c && c.destroy());
   adminChartInstances = [];
+}
+
+function createChart(canvas, config) {
+  if (typeof Chart === 'undefined') {
+    console.warn('[ST] Chart.js not loaded yet, skipping chart');
+    return null;
+  }
+  return new Chart(canvas, config);
 }
 
 const chartColors = {
@@ -1318,7 +1326,7 @@ async function loadAdminOverview() {
     const monthLabels = Object.keys(stats.monthlySpending);
     const monthValues = Object.values(stats.monthlySpending);
     if (monthLabels.length) {
-      adminChartInstances.push(new Chart(document.getElementById('adminMonthlyChart'), {
+      adminChartInstances.push(createChart(document.getElementById('adminMonthlyChart'), {
         type: 'line',
         data: {
           labels: monthLabels,
@@ -1336,7 +1344,7 @@ async function loadAdminOverview() {
 
     // Types doughnut
     const types = stats.strainsByType;
-    adminChartInstances.push(new Chart(document.getElementById('adminTypesChart'), {
+    adminChartInstances.push(createChart(document.getElementById('adminTypesChart'), {
       type: 'doughnut',
       data: {
         labels: ['Indica', 'Sativa', 'Hybrid'],
@@ -1349,7 +1357,7 @@ async function loadAdminOverview() {
     const storeNames = Object.keys(stats.topStores);
     const storeVals = Object.values(stats.topStores);
     if (storeNames.length) {
-      adminChartInstances.push(new Chart(document.getElementById('adminStoresChart'), {
+      adminChartInstances.push(createChart(document.getElementById('adminStoresChart'), {
         type: 'bar',
         data: {
           labels: storeNames,
@@ -1364,7 +1372,7 @@ async function loadAdminOverview() {
     let cumulative = 0;
     const growthData = Object.values(stats.userGrowth).map(v => { cumulative += v; return cumulative; });
     if (growthLabels.length) {
-      adminChartInstances.push(new Chart(document.getElementById('adminGrowthChart'), {
+      adminChartInstances.push(createChart(document.getElementById('adminGrowthChart'), {
         type: 'line',
         data: {
           labels: growthLabels,
@@ -1447,7 +1455,7 @@ async function viewUserDetail(userId) {
     const a = data.analytics;
     const initial = (data.displayName || data.username || '?')[0].toUpperCase();
 
-    userDetailCharts.forEach(c => c.destroy());
+    userDetailCharts.forEach(c => c && c.destroy());
     userDetailCharts = [];
 
     el.innerHTML = `
@@ -1487,7 +1495,7 @@ async function viewUserDetail(userId) {
     const mLabels = Object.keys(a.monthlySpending);
     const mVals = Object.values(a.monthlySpending);
     if (mLabels.length) {
-      userDetailCharts.push(new Chart(document.getElementById('udMonthly'), {
+      userDetailCharts.push(createChart(document.getElementById('udMonthly'), {
         type: 'bar',
         data: { labels: mLabels, datasets: [{ label: 'Spent ($)', data: mVals, backgroundColor: chartColors.green, borderRadius: 4 }] },
         options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#999' }, grid: { color: '#333' } }, y: { ticks: { color: '#999', callback: v => '$' + v }, grid: { color: '#333' } } } }
@@ -1496,7 +1504,7 @@ async function viewUserDetail(userId) {
 
     // Types pie
     const t = a.strainsByType;
-    userDetailCharts.push(new Chart(document.getElementById('udTypes'), {
+    userDetailCharts.push(createChart(document.getElementById('udTypes'), {
       type: 'pie',
       data: { labels: ['Indica', 'Sativa', 'Hybrid'], datasets: [{ data: [t.indica, t.sativa, t.hybrid], backgroundColor: ['#7b1fa2', '#f57c00', '#388e3c'], borderWidth: 0 }] },
       options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' } } } }
@@ -1505,7 +1513,7 @@ async function viewUserDetail(userId) {
     // Rating distribution
     const rLabels = ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'];
     const rVals = Object.values(a.ratingDistribution);
-    userDetailCharts.push(new Chart(document.getElementById('udRatings'), {
+    userDetailCharts.push(createChart(document.getElementById('udRatings'), {
       type: 'bar',
       data: { labels: rLabels, datasets: [{ label: 'Count', data: rVals, backgroundColor: [chartColors.red, chartColors.orange, chartColors.amber, chartColors.lime, chartColors.green], borderRadius: 4 }] },
       options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#999' }, grid: { color: '#333' } }, y: { ticks: { color: '#999', stepSize: 1 }, grid: { color: '#333' } } } }
@@ -1516,7 +1524,7 @@ async function viewUserDetail(userId) {
     const svVals = Object.values(a.storeVisits);
     if (svLabels.length) {
       const storeColors = svLabels.map((_, i) => [chartColors.blue, chartColors.green, chartColors.orange, chartColors.purple, chartColors.red, chartColors.teal, chartColors.pink, chartColors.amber, chartColors.indigo, chartColors.lime][i % 10]);
-      userDetailCharts.push(new Chart(document.getElementById('udStores'), {
+      userDetailCharts.push(createChart(document.getElementById('udStores'), {
         type: 'doughnut',
         data: { labels: svLabels, datasets: [{ data: svVals, backgroundColor: storeColors, borderWidth: 0 }] },
         options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' }, position: 'bottom' } } }
@@ -1527,7 +1535,7 @@ async function viewUserDetail(userId) {
     const ssLabels = Object.keys(a.storeSpending);
     const ssVals = Object.values(a.storeSpending);
     if (ssLabels.length) {
-      userDetailCharts.push(new Chart(document.getElementById('udStoreSpend'), {
+      userDetailCharts.push(createChart(document.getElementById('udStoreSpend'), {
         type: 'bar',
         data: { labels: ssLabels, datasets: [{ label: 'Spent ($)', data: ssVals, backgroundColor: chartColors.blue, borderRadius: 4 }] },
         options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#999', callback: v => '$' + v }, grid: { color: '#333' } }, y: { ticks: { color: '#999' }, grid: { color: '#333' } } } }
@@ -1536,7 +1544,7 @@ async function viewUserDetail(userId) {
 
     // Weekday distribution - radar
     const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    userDetailCharts.push(new Chart(document.getElementById('udWeekday'), {
+    userDetailCharts.push(createChart(document.getElementById('udWeekday'), {
       type: 'radar',
       data: { labels: dayLabels, datasets: [{ label: 'Purchases', data: a.weekdayDistribution, borderColor: chartColors.green, backgroundColor: chartColors.greenAlpha, pointBackgroundColor: chartColors.green }] },
       options: { responsive: true, plugins: { legend: { display: false } }, scales: { r: { ticks: { color: '#999', stepSize: 1, backdropColor: 'transparent' }, grid: { color: '#444' }, angleLines: { color: '#444' }, pointLabels: { color: '#e0e0e0' } } } }
@@ -1547,7 +1555,7 @@ async function viewUserDetail(userId) {
     const tpVals = Object.values(a.topTerpenes);
     if (tpLabels.length) {
       const terpColors = tpLabels.map((_, i) => [chartColors.green, chartColors.teal, chartColors.lime, chartColors.blue, chartColors.purple, chartColors.orange, chartColors.pink, chartColors.amber, chartColors.indigo, chartColors.red][i % 10]);
-      userDetailCharts.push(new Chart(document.getElementById('udTerpenes'), {
+      userDetailCharts.push(createChart(document.getElementById('udTerpenes'), {
         type: 'polarArea',
         data: { labels: tpLabels, datasets: [{ data: tpVals, backgroundColor: terpColors.map(c => c + '99'), borderWidth: 0 }] },
         options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' }, position: 'bottom' } }, scales: { r: { ticks: { color: '#999', backdropColor: 'transparent' }, grid: { color: '#444' } } } }
@@ -1558,7 +1566,7 @@ async function viewUserDetail(userId) {
     const efLabels = Object.keys(a.topEffects);
     const efVals = Object.values(a.topEffects);
     if (efLabels.length) {
-      userDetailCharts.push(new Chart(document.getElementById('udEffects'), {
+      userDetailCharts.push(createChart(document.getElementById('udEffects'), {
         type: 'bar',
         data: { labels: efLabels, datasets: [{ label: 'Count', data: efVals, backgroundColor: chartColors.purple, borderRadius: 4 }] },
         options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#999', stepSize: 1 }, grid: { color: '#333' } }, y: { ticks: { color: '#999' }, grid: { color: '#333' } } } }
@@ -1600,6 +1608,11 @@ async function viewUserDetail(userId) {
 }
 
 // ============ INIT ============
+window.onerror = function(msg, src, line, col, err) {
+  console.error('[ST Error]', msg, 'at line', line);
+};
+console.log('[ST] Init - token:', !!state.token, 'user:', state.user?.id, 'isAdmin:', state.user?.isAdmin);
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closeModal(); closeLightbox(); }
 });
